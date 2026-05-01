@@ -1,10 +1,10 @@
 # TASK-011: Base Text Extraction
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Using the Graphics State (TASK-010), map the raw byte codes in `Tj` or `TJ` operators to actual Unicode strings using the page's `/Resources` -> `/Font` dictionaries and CMap tables.

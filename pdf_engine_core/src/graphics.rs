@@ -252,3 +252,103 @@ mod tests {
         assert_eq!(proc.current_state.ctm.e, 10.0);
     }
 }
+
+#[derive(Debug, PartialEq)]
+pub struct ExtractedText {
+    pub text: String,
+    pub matrix: TransformMatrix,
+    pub font_name: Option<String>,
+}
+
+impl GraphicsStateProcessor {
+    /// Extracts text elements along with their calculated transformation matrices from a content stream.
+    pub fn extract_text(&mut self, operations: &[ContentOperation]) -> Result<Vec<ExtractedText>, PdfError> {
+        let mut extracted = Vec::new();
+
+        for op in operations {
+            self.process_op(op)?;
+
+            match op.operator.as_str() {
+                "Tj" | "'" | "\"" => {
+                    // Extract a simple string operand
+                    if let Some(PdfObject::String(bytes)) = op.operands.first() {
+                        // PDF strings might need CMap lookup.
+                        // For MVP, we do a naive UTF-8 lossy conversion (which handles Standard ASCII/WinAnsi well enough).
+                        let text_str = String::from_utf8_lossy(bytes).into_owned();
+
+                        extracted.push(ExtractedText {
+                            text: text_str,
+                            matrix: self.current_state.text_matrix.clone(),
+                            font_name: self.current_state.font_name.clone(),
+                        });
+                    }
+                }
+                "TJ" => {
+                    // TJ takes an array of strings mixed with positioning numbers
+                    if let Some(PdfObject::Array(arr)) = op.operands.first() {
+                        let mut combined_text = String::new();
+                        for item in arr {
+                            if let PdfObject::String(bytes) = item {
+                                combined_text.push_str(&String::from_utf8_lossy(bytes));
+                            }
+                            // We ignore the number offsets for base text extraction, they just adjust kerning
+                        }
+
+                        extracted.push(ExtractedText {
+                            text: combined_text,
+                            matrix: self.current_state.text_matrix.clone(),
+                            font_name: self.current_state.font_name.clone(),
+                        });
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(extracted)
+    }
+}
+
+#[cfg(test)]
+mod text_tests {
+    use super::*;
+
+    #[test]
+    fn test_extract_text_tj() {
+        let mut proc = GraphicsStateProcessor::new();
+        let ops = vec![
+            ContentOperation {
+                operator: "Tf".into(),
+                operands: vec![PdfObject::Name("F1".into()), PdfObject::Integer(12)],
+            },
+            ContentOperation {
+                operator: "Tj".into(),
+                operands: vec![PdfObject::String(b"Hello".to_vec())],
+            }
+        ];
+
+        let extracted = proc.extract_text(&ops).unwrap();
+        assert_eq!(extracted.len(), 1);
+        assert_eq!(extracted[0].text, "Hello");
+        assert_eq!(extracted[0].font_name, Some("F1".into()));
+    }
+
+    #[test]
+    fn test_extract_text_tj_array() {
+        let mut proc = GraphicsStateProcessor::new();
+        let ops = vec![
+            ContentOperation {
+                operator: "TJ".into(),
+                operands: vec![PdfObject::Array(vec![
+                    PdfObject::String(b"W".to_vec()),
+                    PdfObject::Integer(120),
+                    PdfObject::String(b"orld".to_vec()),
+                ])],
+            }
+        ];
+
+        let extracted = proc.extract_text(&ops).unwrap();
+        assert_eq!(extracted.len(), 1);
+        assert_eq!(extracted[0].text, "World"); // Ignoring the 120 kerning offset
+    }
+}

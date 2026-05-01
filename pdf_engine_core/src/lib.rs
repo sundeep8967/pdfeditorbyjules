@@ -16,3 +16,5 @@ pub mod filter;
 pub mod catalog;
 pub mod content;
 pub mod graphics;
+pub mod edit;
+pub mod save;

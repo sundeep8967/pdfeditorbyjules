@@ -10,6 +10,7 @@ pub struct PdfDocument {
     file: File,
     pub version: String,
     pub xref_table: XrefTable,
+    pub original_startxref: Option<u64>,
 }
 
 impl PdfDocument {
@@ -56,6 +57,7 @@ impl PdfDocument {
             file,
             version: version_str,
             xref_table: XrefTable::new(),
+            original_startxref: None,
         })
     }
 
