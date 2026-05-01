@@ -16,7 +16,7 @@ When this tracker hits 100%, the Rust SDK will be fully compiled and ready to be
 ### Phase 2: Core Object Parsing (0% Complete) ⏳
 *The engine can extract and deserialize any primitive object from the file using the XREF table.*
 - [ ] **TASK-004:** Implement `PdfDocument::get_object()` to seek to byte offsets and read raw object bytes.
-- [ ] **TASK-005:** Implement a Lexer/Tokenizer for raw PDF syntax.
+- [x] **TASK-005:** Implement a Lexer/Tokenizer for raw PDF syntax.
 - [ ] **TASK-006:** Implement a Parser to convert tokens into `PdfObject` AST variants.
 - [ ] **TASK-007:** Support FlateDecode (`flate2` crate) to decompress Object Streams (PDF 1.5+).
 

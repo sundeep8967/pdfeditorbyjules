@@ -185,7 +185,7 @@ mod xref_tests {
         assert_eq!(table.entries.len(), 4);
         assert!(matches!(table.entries.get(&0).unwrap(), XrefEntry::Free { .. }));
         if let XrefEntry::InUse { byte_offset, .. } = table.entries.get(&1).unwrap() {
-            assert_eq!(*byte_offset, 10);
+            assert_eq!(byte_offset, &10);
         } else {
             panic!("Expected InUse entry");
         }

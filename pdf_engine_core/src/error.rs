@@ -19,4 +19,10 @@ pub enum PdfError {
 
     #[error("Failed to parse XREF table format")]
     InvalidXrefFormat,
+
+    #[error("Lexer encountered unexpected EOF")]
+    UnexpectedEof,
+
+    #[error("Lexer encountered invalid syntax: {0}")]
+    InvalidSyntax(String),
 }
