@@ -1,10 +1,10 @@
 # TASK-003: Core PDF Object Model (AST)
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Define the Rust `enum` that represents the primitive building blocks of a PDF file (Boolean, Integer, Real, String, Name, Array, Dictionary, Stream, Null, IndirectReference).

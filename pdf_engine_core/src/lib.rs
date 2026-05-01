@@ -49,3 +49,8 @@ mod tests {
         assert!(matches!(result, Err(PdfError::FileTooSmall)));
     }
 }
+pub mod object;
+pub use object::{ObjectId, PdfDictionary, PdfObject, PdfStream};
+pub mod parser;
+pub mod xref;
+pub use xref::{XrefEntry, XrefTable};

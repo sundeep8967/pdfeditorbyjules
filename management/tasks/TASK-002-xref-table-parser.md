@@ -1,10 +1,10 @@
 # TASK-002: XREF Table Discovery and Parser
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 To read any PDF, we must locate the Cross-Reference (XREF) table to know where every object lives in the file. The PDF spec requires reading the file from the *end* to find the `startxref` byte offset.

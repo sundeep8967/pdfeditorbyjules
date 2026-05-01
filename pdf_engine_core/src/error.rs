@@ -10,4 +10,13 @@ pub enum PdfError {
 
     #[error("File is too small to be a valid PDF")]
     FileTooSmall,
+
+    #[error("Could not find startxref marker in file")]
+    MissingStartXref,
+
+    #[error("Invalid offset found after startxref")]
+    InvalidStartXrefOffset,
+
+    #[error("Failed to parse XREF table format")]
+    InvalidXrefFormat,
 }
