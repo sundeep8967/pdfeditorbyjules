@@ -23,8 +23,8 @@ When this tracker hits 100%, the Rust SDK will be fully compiled and ready to be
 ### Phase 3: Content Stream & Page Tree (0% Complete) ⏳
 *The engine understands pages, resources, and graphics states.*
 - [x] **TASK-008:** Parse the Document Catalog and Page Tree.
-- [ ] **TASK-009:** Parse and decompress Page Content Streams.
-- [ ] **TASK-010:** Build the Graphics State machine (Transform matrices, colors, fonts).
+- [x] **TASK-009:** Parse and decompress Page Content Streams.
+- [x] **TASK-010:** Build the Graphics State machine (Transform matrices, colors, fonts).
 - [ ] **TASK-011:** Implement base text extraction (mapping fonts to Unicode).
 
 ### Phase 4: Editing & Saving (0% Complete) ⏳

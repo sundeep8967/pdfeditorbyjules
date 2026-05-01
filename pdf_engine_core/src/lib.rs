@@ -14,3 +14,5 @@ pub mod ast_parser;
 pub use ast_parser::Parser;
 pub mod filter;
 pub mod catalog;
+pub mod content;
+pub mod graphics;

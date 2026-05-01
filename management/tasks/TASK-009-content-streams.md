@@ -1,10 +1,10 @@
 # TASK-009: Parse Page Content Streams
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [x] In Progress | [ ] In Review | [ ] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 For a given `/Page` object, extract its `/Contents` stream(s), decompress them (using TASK-007), and parse the resulting byte stream into graphics operators.

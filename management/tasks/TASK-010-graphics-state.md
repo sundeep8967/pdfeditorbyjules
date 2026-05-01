@@ -1,10 +1,10 @@
 # TASK-010: Build Graphics State Machine
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [x] In Progress | [ ] In Review | [ ] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 PDF content streams are executed sequentially. The engine must track the current graphics state (CTM, text matrix, font, color, line width) to know *where* and *how* text/graphics are rendered.

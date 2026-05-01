@@ -75,12 +75,15 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
             continue;
         }
         if trimmed.starts_with("trailer") {
-            // Read the remaining bytes up to EOF or `startxref` to parse the trailer dict
             let mut trailer_data = Vec::new();
-            // We just need enough bytes for the dict
-            reader.read_to_end(&mut trailer_data)?;
+            // In case the dictionary is on the same line as `trailer`
+            let inline_data = trimmed.trim_start_matches("trailer").trim();
+            trailer_data.extend_from_slice(inline_data.as_bytes());
 
-            // Lex and parse the dictionary
+            let mut remaining = Vec::new();
+            reader.read_to_end(&mut remaining)?;
+            trailer_data.extend_from_slice(&remaining);
+
             let lexer = Lexer::new(&trailer_data);
             let mut ast_parser = AstParser::new(lexer)?;
             let trailer_obj = ast_parser.parse_object()?;

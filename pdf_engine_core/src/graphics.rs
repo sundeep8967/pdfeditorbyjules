@@ -1,0 +1,254 @@
+use crate::error::PdfError;
+use crate::object::PdfObject;
+use crate::content::ContentOperation;
+
+/// A 3x3 transformation matrix used for coordinate and text transformations.
+/// PDF matrices are defined by 6 numbers: [a b c d e f].
+/// The matrix looks like:
+/// | a  b  0 |
+/// | c  d  0 |
+/// | e  f  1 |
+#[derive(Debug, Clone, PartialEq)]
+pub struct TransformMatrix {
+    pub a: f32,
+    pub b: f32,
+    pub c: f32,
+    pub d: f32,
+    pub e: f32,
+    pub f: f32,
+}
+
+impl Default for TransformMatrix {
+    fn default() -> Self {
+        Self { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+    }
+}
+
+impl TransformMatrix {
+    pub fn new(a: f32, b: f32, c: f32, d: f32, e: f32, f: f32) -> Self {
+        Self { a, b, c, d, e, f }
+    }
+
+    /// Multiply this matrix by another: Self = Other * Self (PDF spec standard)
+    pub fn multiply(&mut self, other: &TransformMatrix) {
+        let new_a = other.a * self.a + other.b * self.c;
+        let new_b = other.a * self.b + other.b * self.d;
+        let new_c = other.c * self.a + other.d * self.c;
+        let new_d = other.c * self.b + other.d * self.d;
+        let new_e = other.e * self.a + other.f * self.c + self.e;
+        let new_f = other.e * self.b + other.f * self.d + self.f;
+
+        self.a = new_a;
+        self.b = new_b;
+        self.c = new_c;
+        self.d = new_d;
+        self.e = new_e;
+        self.f = new_f;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct GraphicsState {
+    /// Current Transformation Matrix
+    pub ctm: TransformMatrix,
+
+    // Line state
+    pub line_width: f32,
+
+    // Text state
+    pub character_spacing: f32,
+    pub word_spacing: f32,
+    pub horizontal_scaling: f32,
+    pub leading: f32,
+    pub font_name: Option<String>,
+    pub font_size: f32,
+    pub text_render_mode: i32,
+    pub text_rise: f32,
+
+    // Text object matrices (Not technically part of GraphicsState in spec, but easier to track here)
+    pub text_matrix: TransformMatrix,
+    pub text_line_matrix: TransformMatrix,
+}
+
+impl Default for GraphicsState {
+    fn default() -> Self {
+        Self {
+            ctm: TransformMatrix::default(),
+            line_width: 1.0,
+            character_spacing: 0.0,
+            word_spacing: 0.0,
+            horizontal_scaling: 100.0,
+            leading: 0.0,
+            font_name: None,
+            font_size: 1.0,
+            text_render_mode: 0,
+            text_rise: 0.0,
+            text_matrix: TransformMatrix::default(),
+            text_line_matrix: TransformMatrix::default(),
+        }
+    }
+}
+
+/// The engine that processes operations and maintains state.
+pub struct GraphicsStateProcessor {
+    pub current_state: GraphicsState,
+    state_stack: Vec<GraphicsState>,
+}
+
+impl GraphicsStateProcessor {
+    pub fn new() -> Self {
+        Self {
+            current_state: GraphicsState::default(),
+            state_stack: Vec::new(),
+        }
+    }
+
+    /// Process a single content stream operation.
+    pub fn process_op(&mut self, op: &ContentOperation) -> Result<(), PdfError> {
+        match op.operator.as_str() {
+            // -- Graphics State Save/Restore --
+            "q" => {
+                self.state_stack.push(self.current_state.clone());
+            }
+            "Q" => {
+                if let Some(state) = self.state_stack.pop() {
+                    self.current_state = state;
+                } else {
+                    return Err(PdfError::GraphicsStackUnderflow);
+                }
+            }
+            // -- CTM --
+            "cm" => {
+                let m = extract_matrix_operands(&op.operands)?;
+                self.current_state.ctm.multiply(&m);
+            }
+            // -- Text State --
+            "Tc" => self.current_state.character_spacing = extract_f32(&op.operands, 0)?,
+            "Tw" => self.current_state.word_spacing = extract_f32(&op.operands, 0)?,
+            "Tz" => self.current_state.horizontal_scaling = extract_f32(&op.operands, 0)?,
+            "TL" => self.current_state.leading = extract_f32(&op.operands, 0)?,
+            "Tf" => {
+                self.current_state.font_name = Some(extract_name(&op.operands, 0)?);
+                self.current_state.font_size = extract_f32(&op.operands, 1)?;
+            }
+            "Tr" => self.current_state.text_render_mode = extract_f32(&op.operands, 0)? as i32,
+            "Ts" => self.current_state.text_rise = extract_f32(&op.operands, 0)?,
+
+            // -- Text Objects --
+            "BT" => {
+                self.current_state.text_matrix = TransformMatrix::default();
+                self.current_state.text_line_matrix = TransformMatrix::default();
+            }
+            "ET" => {
+                // Text object ends. State doesn't strictly reset, but good to know.
+            }
+            "Tm" => {
+                let m = extract_matrix_operands(&op.operands)?;
+                self.current_state.text_matrix = m.clone();
+                self.current_state.text_line_matrix = m;
+            }
+            "Td" => {
+                let tx = extract_f32(&op.operands, 0)?;
+                let ty = extract_f32(&op.operands, 1)?;
+                let m = TransformMatrix::new(1.0, 0.0, 0.0, 1.0, tx, ty);
+                // Td sets Tlm = Tlm * offset, then Tm = Tlm
+                self.current_state.text_line_matrix.multiply(&m);
+                self.current_state.text_matrix = self.current_state.text_line_matrix.clone();
+            }
+            "TD" => {
+                let tx = extract_f32(&op.operands, 0)?;
+                let ty = extract_f32(&op.operands, 1)?;
+                self.current_state.leading = -ty; // TD implicitly sets leading
+                let m = TransformMatrix::new(1.0, 0.0, 0.0, 1.0, tx, ty);
+                self.current_state.text_line_matrix.multiply(&m);
+                self.current_state.text_matrix = self.current_state.text_line_matrix.clone();
+            }
+            "T*" => {
+                let ty = -self.current_state.leading;
+                let m = TransformMatrix::new(1.0, 0.0, 0.0, 1.0, 0.0, ty);
+                self.current_state.text_line_matrix.multiply(&m);
+                self.current_state.text_matrix = self.current_state.text_line_matrix.clone();
+            }
+            // Add other operators as necessary...
+            _ => {} // Ignore unknown operators for now
+        }
+        Ok(())
+    }
+}
+
+fn extract_f32(operands: &[PdfObject], idx: usize) -> Result<f32, PdfError> {
+    if let Some(obj) = operands.get(idx) {
+        match obj {
+            PdfObject::Real(r) => Ok(*r),
+            PdfObject::Integer(i) => Ok(*i as f32),
+            _ => Err(PdfError::InvalidGraphicOperator("Expected Number".into())),
+        }
+    } else {
+        Err(PdfError::InvalidGraphicOperator("Missing Operand".into()))
+    }
+}
+
+fn extract_name(operands: &[PdfObject], idx: usize) -> Result<String, PdfError> {
+    if let Some(PdfObject::Name(n)) = operands.get(idx) {
+        Ok(n.clone())
+    } else {
+        Err(PdfError::InvalidGraphicOperator("Expected Name".into()))
+    }
+}
+
+fn extract_matrix_operands(operands: &[PdfObject]) -> Result<TransformMatrix, PdfError> {
+    if operands.len() != 6 {
+        return Err(PdfError::InvalidGraphicOperator("Matrix requires 6 operands".into()));
+    }
+    Ok(TransformMatrix::new(
+        extract_f32(operands, 0)?,
+        extract_f32(operands, 1)?,
+        extract_f32(operands, 2)?,
+        extract_f32(operands, 3)?,
+        extract_f32(operands, 4)?,
+        extract_f32(operands, 5)?,
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_save_restore_state() {
+        let mut proc = GraphicsStateProcessor::new();
+
+        proc.process_op(&ContentOperation {
+            operator: "w".into(), // line width (we haven't implemented it, but let's test stack)
+            operands: vec![],
+        }).unwrap();
+
+        proc.current_state.line_width = 5.0; // Manual mutate
+
+        proc.process_op(&ContentOperation { operator: "q".into(), operands: vec![] }).unwrap();
+        proc.current_state.line_width = 10.0;
+
+        assert_eq!(proc.current_state.line_width, 10.0);
+
+        proc.process_op(&ContentOperation { operator: "Q".into(), operands: vec![] }).unwrap();
+        assert_eq!(proc.current_state.line_width, 5.0);
+    }
+
+    #[test]
+    fn test_ctm_multiply() {
+        let mut proc = GraphicsStateProcessor::new();
+        // cm [2 0 0 2 10 10] -> scales by 2, translates by 10
+        let op = ContentOperation {
+            operator: "cm".into(),
+            operands: vec![
+                PdfObject::Integer(2), PdfObject::Integer(0),
+                PdfObject::Integer(0), PdfObject::Integer(2),
+                PdfObject::Integer(10), PdfObject::Integer(10),
+            ]
+        };
+
+        proc.process_op(&op).unwrap();
+        assert_eq!(proc.current_state.ctm.a, 2.0);
+        assert_eq!(proc.current_state.ctm.e, 10.0);
+    }
+}

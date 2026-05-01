@@ -3,7 +3,7 @@ use crate::lexer::{Lexer, PdfToken};
 use crate::object::{ObjectId, PdfDictionary, PdfObject, PdfStream};
 
 pub struct Parser<'a> {
-    lexer: Lexer<'a>,
+    pub lexer: Lexer<'a>,
     current_token: Option<PdfToken>,
 }
 
@@ -22,6 +22,13 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse_object(&mut self) -> Result<PdfObject, PdfError> {
+        self.parse_object_with_depth(0)
+    }
+
+    fn parse_object_with_depth(&mut self, depth: usize) -> Result<PdfObject, PdfError> {
+        if depth > 100 {
+            return Err(PdfError::InvalidSyntax("Max recursion depth exceeded".into()));
+        }
         let token = match self.current_token.take() {
             Some(t) => t,
             None => return Err(PdfError::UnexpectedEof),
@@ -75,7 +82,7 @@ impl<'a> Parser<'a> {
                     self.advance()?; // Consume gen number
                     self.advance()?; // Consume 'obj'
 
-                    let inner_obj = self.parse_object()?;
+                    let inner_obj = self.parse_object_with_depth(depth + 1)?;
 
                     let mut has_endobj = false;
                     if let Some(PdfToken::Keyword(ref endkw)) = self.current_token {
@@ -122,7 +129,7 @@ impl<'a> Parser<'a> {
                     if self.current_token.is_none() {
                         return Err(PdfError::UnexpectedEof);
                     }
-                    let obj = self.parse_object()?;
+                    let obj = self.parse_object_with_depth(depth + 1)?;
                     array.push(obj);
                 }
                 Ok(PdfObject::Array(array))

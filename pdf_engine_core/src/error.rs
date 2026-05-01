@@ -64,6 +64,18 @@ pub enum PdfError {
 
     #[error("Invalid Page Tree structure")]
     InvalidPageTree,
+
+    #[error("Page is missing /Contents entry")]
+    MissingPageContents,
+
+    #[error("Invalid Page /Contents structure")]
+    InvalidPageContents,
+
+    #[error("Graphics State Stack underflow")]
+    GraphicsStackUnderflow,
+
+    #[error("Invalid Graphic Operator: {0}")]
+    InvalidGraphicOperator(String),
 }
 
 impl From<std::io::Error> for PdfError {
