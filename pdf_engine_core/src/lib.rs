@@ -18,3 +18,4 @@ pub mod content;
 pub mod graphics;
 pub mod edit;
 pub mod save;
+pub mod ffi;
