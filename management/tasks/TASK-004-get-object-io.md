@@ -1,10 +1,10 @@
 # TASK-004: Raw Object Byte Extraction
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Implement a mechanism on `PdfDocument` that, given an `ObjectId`, uses the `XrefTable` to seek to the correct byte offset and extract the raw bytes belonging to that object.

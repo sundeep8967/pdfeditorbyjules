@@ -2,29 +2,31 @@ use crate::error::PdfError;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PdfToken {
-    /// e.g. `<<`
     DictStart,
-    /// e.g. `>>`
     DictEnd,
-    /// e.g. `[`
     ArrayStart,
-    /// e.g. `]`
     ArrayEnd,
-    /// e.g. `/Name`
     Name(String),
-    /// e.g. `(Literal String)`
     StringLiteral(Vec<u8>),
-    /// e.g. `<48656C6C6F>`
     HexString(Vec<u8>),
-    /// e.g. `123`, `-4.5`
     Number(String),
-    /// e.g. `true`, `false`, `null`, `obj`, `endobj`, `stream`, `R`
     Keyword(String),
+    /// Represents raw binary data extracted from a `stream`...`endstream` block
+    StreamData(Vec<u8>),
 }
 
 pub struct Lexer<'a> {
     data: &'a [u8],
     pos: usize,
+}
+
+impl<'a> Clone for Lexer<'a> {
+    fn clone(&self) -> Self {
+        Self {
+            data: self.data,
+            pos: self.pos,
+        }
+    }
 }
 
 impl<'a> Lexer<'a> {
@@ -70,13 +72,64 @@ impl<'a> Lexer<'a> {
             b'(' => self.lex_string_literal(),
             b'+' | b'-' | b'.' | b'0'..=b'9' => self.lex_number(),
             _ => {
-                // If it's a regular character, it's a keyword
                 if is_regular(c) {
-                    self.lex_keyword()
+                    let kw = self.lex_keyword()?;
+
+                    // If we just lexed the "stream" keyword, the next bytes up to "endstream" are raw binary.
+                    if let Some(PdfToken::Keyword(ref s)) = kw {
+                        if s == "stream" {
+                            return self.lex_stream_data();
+                        }
+                    }
+                    Ok(kw)
                 } else {
                     Err(PdfError::InvalidSyntax(format!("Unexpected character: {}", c as char)))
                 }
             }
+        }
+    }
+
+    fn lex_stream_data(&mut self) -> Result<Option<PdfToken>, PdfError> {
+        // The PDF spec says `stream` must be followed by CRLF or LF.
+        // We skip the immediate whitespace.
+        if self.pos < self.data.len() && self.data[self.pos] == b'\r' {
+            self.pos += 1;
+        }
+        if self.pos < self.data.len() && self.data[self.pos] == b'\n' {
+            self.pos += 1;
+        }
+
+        let start = self.pos;
+        // Search for "endstream"
+        let endstream = b"endstream";
+        let mut found_idx = None;
+
+        for i in start..self.data.len().saturating_sub(endstream.len() - 1) {
+            if &self.data[i..i + endstream.len()] == endstream {
+                found_idx = Some(i);
+                break;
+            }
+        }
+
+        if let Some(idx) = found_idx {
+            // There is usually a newline right before endstream that we should omit
+            let mut end_data = idx;
+            if end_data > start && self.data[end_data - 1] == b'\n' {
+                end_data -= 1;
+                if end_data > start && self.data[end_data - 1] == b'\r' {
+                    end_data -= 1;
+                }
+            }
+
+            let stream_bytes = self.data[start..end_data].to_vec();
+            self.pos = idx + endstream.len(); // advance past 'endstream'
+
+            // We return Keyword("stream") as one token, then StreamData on next call?
+            // Actually, it's easier to return it all as one `StreamData` token to encapsulate it.
+            // The parser will expect this after seeing a Dictionary.
+            Ok(Some(PdfToken::StreamData(stream_bytes)))
+        } else {
+            Err(PdfError::UnexpectedEof)
         }
     }
 
@@ -94,7 +147,6 @@ impl<'a> Lexer<'a> {
             if is_whitespace(c) {
                 self.pos += 1;
             } else if c == b'%' {
-                // Comment, skip until EOL
                 self.pos += 1;
                 while self.pos < self.data.len() && self.data[self.pos] != b'\n' && self.data[self.pos] != b'\r' {
                     self.pos += 1;
@@ -106,14 +158,12 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_name(&mut self) -> Result<Option<PdfToken>, PdfError> {
-        self.pos += 1; // skip '/'
+        self.pos += 1;
         let start = self.pos;
         while self.pos < self.data.len() && is_regular(self.data[self.pos]) {
             self.pos += 1;
         }
-        let name_bytes = &self.data[start..self.pos];
-        // Names are UTF-8 in PDF 2.0, but generally standard ascii.
-        let name_str = String::from_utf8_lossy(name_bytes).into_owned();
+        let name_str = String::from_utf8_lossy(&self.data[start..self.pos]).into_owned();
         Ok(Some(PdfToken::Name(name_str)))
     }
 
@@ -141,7 +191,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_hex_string(&mut self) -> Result<Option<PdfToken>, PdfError> {
-        self.pos += 1; // skip '<'
+        self.pos += 1;
         let mut hex_bytes = Vec::new();
         while self.pos < self.data.len() {
             let c = self.data[self.pos];
@@ -154,20 +204,17 @@ impl<'a> Lexer<'a> {
             }
             self.pos += 1;
         }
-        // In a real hex parser, we'd convert the hex chars to actual u8 bytes here.
-        // For the lexer, returning the raw hex ASCII is fine, the Parser will decode it.
         Ok(Some(PdfToken::HexString(hex_bytes)))
     }
 
     fn lex_string_literal(&mut self) -> Result<Option<PdfToken>, PdfError> {
-        self.pos += 1; // skip '('
+        self.pos += 1;
         let mut string_bytes = Vec::new();
         let mut open_parens = 1;
 
         while self.pos < self.data.len() {
             let c = self.data[self.pos];
             if c == b'\\' {
-                // Escape sequence (we keep it raw for now, parser handles it)
                 string_bytes.push(c);
                 self.pos += 1;
                 if self.pos < self.data.len() {
@@ -253,5 +300,12 @@ mod tests {
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("null".into())));
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::ArrayEnd));
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("obj".into())));
+    }
+
+    #[test]
+    fn test_lex_stream() {
+        let data = b"stream\nRAW_BINARY_DATA\nendstream";
+        let mut lexer = Lexer::new(data);
+        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::StreamData(b"RAW_BINARY_DATA".to_vec())));
     }
 }

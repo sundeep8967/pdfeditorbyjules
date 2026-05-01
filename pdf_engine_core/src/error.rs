@@ -1,9 +1,9 @@
 use thiserror::Error;
 
-#[derive(Error, Debug)]
+#[derive(Error, Debug, PartialEq)]
 pub enum PdfError {
     #[error("I/O error: {0}")]
-    Io(#[from] std::io::Error),
+    Io(String),
 
     #[error("Invalid PDF File: Missing %PDF- header")]
     InvalidFileSignature,
@@ -25,4 +25,34 @@ pub enum PdfError {
 
     #[error("Lexer encountered invalid syntax: {0}")]
     InvalidSyntax(String),
+
+    #[error("Requested object {0} is marked as Free")]
+    ObjectIsFree(u32),
+
+    #[error("Requested object {0} requires stream decompression")]
+    ObjectRequiresDecompression(u32),
+
+    #[error("Object {0} not found in XREF table")]
+    ObjectNotFound(u32),
+
+    #[error("Malformed indirect object definition for {0}")]
+    MalformedIndirectObject(u32),
+
+    #[error("Parser encountered unexpected token")]
+    UnexpectedToken,
+
+    #[error("Parser expected Dictionary key to be a Name")]
+    ExpectedDictKeyName,
+
+    #[error("Parser encountered unexpected end of stream keyword")]
+    UnexpectedEndStream,
+
+    #[error("Parser encountered unexpected end of object keyword")]
+    UnexpectedEndObj,
+}
+
+impl From<std::io::Error> for PdfError {
+    fn from(err: std::io::Error) -> Self {
+        PdfError::Io(err.to_string())
+    }
 }

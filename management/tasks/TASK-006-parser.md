@@ -1,10 +1,10 @@
 # TASK-006: PDF AST Parser
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Consume a stream of `PdfToken`s (from TASK-005) and assemble them into a valid `PdfObject` AST (from TASK-003).
