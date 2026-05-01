@@ -1,10 +1,10 @@
 # TASK-001: PDF File Validation and Basic I/O
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 The engine needs the ability to open a file path, read bytes, and verify that the file is actually a PDF by checking the header magic bytes (e.g., `%PDF-1.4`).
