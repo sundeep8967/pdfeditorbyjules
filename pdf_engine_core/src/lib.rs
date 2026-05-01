@@ -13,3 +13,4 @@ pub use lexer::{Lexer, PdfToken};
 pub mod ast_parser;
 pub use ast_parser::Parser;
 pub mod filter;
+pub mod catalog;

@@ -43,39 +43,52 @@ impl<'a> Parser<'a> {
             PdfToken::Number(s) => {
                 self.advance()?;
 
+                let mut is_reference = false;
+                let mut is_obj = false;
+                let mut ref_gen: u16 = 0;
+
+                // Inspect without holding borrow across self.advance()
                 if let Some(PdfToken::Number(ref gen_str)) = self.current_token {
                     let mut lookahead = self.lexer.clone();
                     if let Ok(Some(PdfToken::Keyword(kw))) = lookahead.next_token() {
                         if kw == "R" {
-                            let obj_num = s.parse::<u32>().map_err(|_| PdfError::UnexpectedToken)?;
-                            let gen_num = gen_str.parse::<u16>().map_err(|_| PdfError::UnexpectedToken)?;
-
-                            self.advance()?; // Consume gen number
-                            self.advance()?; // Consume 'R'
-
-                            return Ok(PdfObject::Reference(ObjectId {
-                                object_number: obj_num,
-                                generation_number: gen_num,
-                            }));
-                        } else if kw == "obj" {
-                            // indirect object definition `10 0 obj`
-                            // We consume `gen` and `obj`
-                            self.advance()?;
-                            self.advance()?;
-
-                            // Parse the actual object inside
-                            let inner_obj = self.parse_object()?;
-
-                            // It MUST be followed by `endobj`
-                            if let Some(PdfToken::Keyword(endkw)) = &self.current_token {
-                                if endkw == "endobj" {
-                                    self.advance()?; // Consume endobj
-                                    return Ok(inner_obj);
-                                }
+                            if let Ok(g) = gen_str.parse::<u16>() {
+                                is_reference = true;
+                                ref_gen = g;
                             }
-                            return Err(PdfError::UnexpectedEndObj);
+                        } else if kw == "obj" {
+                            is_obj = true;
                         }
                     }
+                }
+
+                if is_reference {
+                    let obj_num = s.parse::<u32>().map_err(|_| PdfError::UnexpectedToken)?;
+                    self.advance()?; // Consume gen number
+                    self.advance()?; // Consume 'R'
+
+                    return Ok(PdfObject::Reference(ObjectId {
+                        object_number: obj_num,
+                        generation_number: ref_gen,
+                    }));
+                } else if is_obj {
+                    self.advance()?; // Consume gen number
+                    self.advance()?; // Consume 'obj'
+
+                    let inner_obj = self.parse_object()?;
+
+                    let mut has_endobj = false;
+                    if let Some(PdfToken::Keyword(ref endkw)) = self.current_token {
+                        if endkw == "endobj" {
+                            has_endobj = true;
+                        }
+                    }
+
+                    if has_endobj {
+                        self.advance()?; // Consume endobj
+                        return Ok(inner_obj);
+                    }
+                    return Err(PdfError::UnexpectedEndObj);
                 }
 
                 if let Ok(int_val) = s.parse::<i32>() {
@@ -100,10 +113,14 @@ impl<'a> Parser<'a> {
             PdfToken::ArrayStart => {
                 self.advance()?;
                 let mut array = Vec::new();
-                while let Some(tok) = &self.current_token {
-                    if *tok == PdfToken::ArrayEnd {
+                loop {
+                    let is_end = if let Some(PdfToken::ArrayEnd) = self.current_token { true } else { false };
+                    if is_end {
                         self.advance()?;
                         break;
+                    }
+                    if self.current_token.is_none() {
+                        return Err(PdfError::UnexpectedEof);
                     }
                     let obj = self.parse_object()?;
                     array.push(obj);
@@ -113,13 +130,17 @@ impl<'a> Parser<'a> {
             PdfToken::DictStart => {
                 self.advance()?;
                 let mut dict = PdfDictionary::new();
-                while let Some(tok) = &self.current_token {
-                    if *tok == PdfToken::DictEnd {
+                loop {
+                    let is_end = if let Some(PdfToken::DictEnd) = self.current_token { true } else { false };
+                    if is_end {
                         self.advance()?;
                         break;
                     }
+                    if self.current_token.is_none() {
+                        return Err(PdfError::UnexpectedEof);
+                    }
 
-                    let key = if let PdfToken::Name(name_str) = tok {
+                    let key = if let Some(PdfToken::Name(ref name_str)) = self.current_token {
                         name_str.clone()
                     } else {
                         return Err(PdfError::ExpectedDictKeyName);
@@ -130,13 +151,16 @@ impl<'a> Parser<'a> {
                     dict.insert(key, value);
                 }
 
-                // PDF Streams are Dictionaries followed immediately by the `stream` token
-                if let Some(PdfToken::StreamData(data)) = &self.current_token {
-                    let stream_data = data.clone();
+                let mut stream_data = None;
+                if let Some(PdfToken::StreamData(ref data)) = self.current_token {
+                    stream_data = Some(data.clone());
+                }
+
+                if let Some(data) = stream_data {
                     self.advance()?; // Consume the stream block
                     return Ok(PdfObject::Stream(PdfStream {
                         dict,
-                        data: stream_data,
+                        data,
                     }));
                 }
 
@@ -181,7 +205,6 @@ mod tests {
         let lexer = Lexer::new(b"10 0 obj\n/Page\nendobj");
         let mut parser = Parser::new(lexer).unwrap();
 
-        // The parser should unwrap the `obj...endobj` and just return the inner Name
         assert_eq!(parser.parse_object().unwrap(), PdfObject::Name("Page".into()));
     }
 

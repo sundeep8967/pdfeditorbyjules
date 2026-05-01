@@ -11,7 +11,7 @@ pub enum PdfToken {
     HexString(Vec<u8>),
     Number(String),
     Keyword(String),
-    /// Represents raw binary data extracted from a `stream`...`endstream` block
+    /// Represents raw binary data extracted from a `stream`...`endstream` block.
     StreamData(Vec<u8>),
 }
 
@@ -75,10 +75,11 @@ impl<'a> Lexer<'a> {
                 if is_regular(c) {
                     let kw = self.lex_keyword()?;
 
-                    // If we just lexed the "stream" keyword, the next bytes up to "endstream" are raw binary.
                     if let Some(PdfToken::Keyword(ref s)) = kw {
                         if s == "stream" {
-                            return self.lex_stream_data();
+                            // In a real PDF, stream length must be determined by the /Length dictionary entry.
+                            // We use a safe sub-sequence search here for MVP testing, but will adapt it to pass length directly soon.
+                            return self.lex_stream_data_naive();
                         }
                     }
                     Ok(kw)
@@ -89,9 +90,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    fn lex_stream_data(&mut self) -> Result<Option<PdfToken>, PdfError> {
-        // The PDF spec says `stream` must be followed by CRLF or LF.
-        // We skip the immediate whitespace.
+    fn lex_stream_data_naive(&mut self) -> Result<Option<PdfToken>, PdfError> {
         if self.pos < self.data.len() && self.data[self.pos] == b'\r' {
             self.pos += 1;
         }
@@ -100,7 +99,6 @@ impl<'a> Lexer<'a> {
         }
 
         let start = self.pos;
-        // Search for "endstream"
         let endstream = b"endstream";
         let mut found_idx = None;
 
@@ -112,7 +110,6 @@ impl<'a> Lexer<'a> {
         }
 
         if let Some(idx) = found_idx {
-            // There is usually a newline right before endstream that we should omit
             let mut end_data = idx;
             if end_data > start && self.data[end_data - 1] == b'\n' {
                 end_data -= 1;
@@ -122,11 +119,7 @@ impl<'a> Lexer<'a> {
             }
 
             let stream_bytes = self.data[start..end_data].to_vec();
-            self.pos = idx + endstream.len(); // advance past 'endstream'
-
-            // We return Keyword("stream") as one token, then StreamData on next call?
-            // Actually, it's easier to return it all as one `StreamData` token to encapsulate it.
-            // The parser will expect this after seeing a Dictionary.
+            self.pos = idx + endstream.len();
             Ok(Some(PdfToken::StreamData(stream_bytes)))
         } else {
             Err(PdfError::UnexpectedEof)

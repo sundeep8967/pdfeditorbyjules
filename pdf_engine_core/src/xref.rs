@@ -10,12 +10,22 @@ pub enum XrefEntry {
 #[derive(Debug, Clone)]
 pub struct XrefTable {
     pub entries: HashMap<u32, XrefEntry>,
+    pub trailer_dict: Option<PdfDictionary>,
 }
 
 impl XrefTable {
     pub fn new() -> Self {
         Self {
             entries: HashMap::new(),
+            trailer_dict: None,
         }
+    }
+}
+
+use crate::object::PdfDictionary;
+
+impl XrefTable {
+    pub fn trailer(&self) -> Option<&PdfDictionary> {
+        self.trailer_dict.as_ref()
     }
 }

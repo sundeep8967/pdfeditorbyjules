@@ -30,8 +30,6 @@ pub fn decode_stream(stream: &PdfStream) -> Result<Vec<u8>, PdfError> {
 
     let mut current_data = stream.data.clone();
 
-    // PDF filters are applied in the order they appear in the array.
-    // To decode, we must apply them in the exact order.
     for filter in filters {
         current_data = apply_decode_filter(&filter, &current_data)?;
     }
@@ -49,11 +47,40 @@ fn apply_decode_filter(filter_name: &str, data: &[u8]) -> Result<Vec<u8>, PdfErr
             Ok(decompressed)
         }
         "ASCIIHexDecode" | "AHx" => {
-            // Placeholder: Not implemented yet, but common.
-            Err(PdfError::UnsupportedFilter("ASCIIHexDecode".into()))
+            // Decodes a string of ASCII hex characters into binary data
+            let mut decoded = Vec::new();
+            let mut high_nibble = None;
+            for &byte in data {
+                if byte == b'>' {
+                    break;
+                }
+                if byte.is_ascii_whitespace() {
+                    continue;
+                }
+
+                let val = match byte {
+                    b'0'..=b'9' => byte - b'0',
+                    b'a'..=b'f' => byte - b'a' + 10,
+                    b'A'..=b'F' => byte - b'A' + 10,
+                    _ => return Err(PdfError::FilterDecodeError("Invalid character in ASCIIHexDecode".into())),
+                };
+
+                if let Some(high) = high_nibble {
+                    decoded.push((high << 4) | val);
+                    high_nibble = None;
+                } else {
+                    high_nibble = Some(val);
+                }
+            }
+
+            // If there's an odd number of hex chars, the spec says to assume a trailing 0
+            if let Some(high) = high_nibble {
+                decoded.push(high << 4);
+            }
+
+            Ok(decoded)
         }
         "ASCII85Decode" | "A85" => {
-            // Placeholder: Not implemented yet
             Err(PdfError::UnsupportedFilter("ASCII85Decode".into()))
         }
         "LZWDecode" | "LZW" => {
@@ -83,12 +110,10 @@ mod tests {
 
     #[test]
     fn test_flate_decode() {
-        // Compress some data
         let mut encoder = ZlibEncoder::new(Vec::new(), Compression::default());
         encoder.write_all(b"Compressed PDF stream data!").unwrap();
         let compressed_bytes = encoder.finish().unwrap();
 
-        // Create stream object
         let mut dict = PdfDictionary::new();
         dict.insert("Filter", PdfObject::Name("FlateDecode".into()));
 
@@ -97,9 +122,22 @@ mod tests {
             data: compressed_bytes,
         };
 
-        // Decode
         let decoded = decode_stream(&stream).unwrap();
         assert_eq!(decoded, b"Compressed PDF stream data!");
+    }
+
+    #[test]
+    fn test_ascii_hex_decode() {
+        let mut dict = PdfDictionary::new();
+        dict.insert("Filter", PdfObject::Name("ASCIIHexDecode".into()));
+
+        let stream = PdfStream {
+            dict,
+            data: b"48 656c6c6F>".to_vec(), // "Hello"
+        };
+
+        let decoded = decode_stream(&stream).unwrap();
+        assert_eq!(decoded, b"Hello");
     }
 
     #[test]

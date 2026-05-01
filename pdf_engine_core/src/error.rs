@@ -55,6 +55,15 @@ pub enum PdfError {
 
     #[error("Unsupported stream filter: {0}")]
     UnsupportedFilter(String),
+
+    #[error("Missing or invalid Trailer dictionary")]
+    InvalidTrailer,
+
+    #[error("Missing /Root entry in Trailer")]
+    MissingRoot,
+
+    #[error("Invalid Page Tree structure")]
+    InvalidPageTree,
 }
 
 impl From<std::io::Error> for PdfError {
