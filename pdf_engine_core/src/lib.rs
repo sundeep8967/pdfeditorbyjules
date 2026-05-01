@@ -49,3 +49,5 @@ mod tests {
         assert!(matches!(result, Err(PdfError::FileTooSmall)));
     }
 }
+pub mod object;
+pub use object::{ObjectId, PdfDictionary, PdfObject, PdfStream};
