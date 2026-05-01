@@ -1,0 +1,15 @@
+[package]
+name = "pdf_engine_core"
+version = "0.1.0"
+edition = "2021"
+description = "Proprietary high-performance, memory-safe PDF SDK built from scratch."
+
+[dependencies]
+flate2 = "1"
+rayon = "1"
+aes = "0.8"
+md-5 = "0.10"
+sha2 = "0.10"
+crc32fast = "1"
+thiserror = "1"
+log = "0.4"
