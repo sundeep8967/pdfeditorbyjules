@@ -3,7 +3,7 @@
 This document tracks the high-level roadmap to a 100% feature-complete PDF Editor SDK.
 When this tracker hits 100%, the Rust SDK will be fully compiled and ready to be integrated into Swift (iOS) and Kotlin (Android) apps via FFI, capable of opening, rendering, and editing text inside PDFs.
 
-## Overall Progress: 10% 🟢⚪⚪⚪⚪⚪⚪⚪⚪⚪
+## Overall Progress: 30% 🟢🟢🟢⚪⚪⚪⚪⚪⚪
 
 ---
 
@@ -13,12 +13,12 @@ When this tracker hits 100%, the Rust SDK will be fully compiled and ready to be
 - [x] **TASK-003:** Core PDF Object Model (AST) Enum definition
 - [x] **TASK-002:** XREF Table Discovery and Parser
 
-### Phase 2: Core Object Parsing (0% Complete) ⏳
+### Phase 2: Core Object Parsing (100% Complete) ✅
 *The engine can extract and deserialize any primitive object from the file using the XREF table.*
 - [x] **TASK-004:** Implement `PdfDocument::get_object()` to seek to byte offsets and read raw object bytes.
 - [x] **TASK-005:** Implement a Lexer/Tokenizer for raw PDF syntax.
 - [x] **TASK-006:** Implement a Parser to convert tokens into `PdfObject` AST variants.
-- [ ] **TASK-007:** Support FlateDecode (`flate2` crate) to decompress Object Streams (PDF 1.5+).
+- [x] **TASK-007:** Support FlateDecode (`flate2` crate) to decompress Object Streams (PDF 1.5+).
 
 ### Phase 3: Content Stream & Page Tree (0% Complete) ⏳
 *The engine understands pages, resources, and graphics states.*

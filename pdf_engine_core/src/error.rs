@@ -49,6 +49,12 @@ pub enum PdfError {
 
     #[error("Parser encountered unexpected end of object keyword")]
     UnexpectedEndObj,
+
+    #[error("Failed to decode stream: {0}")]
+    FilterDecodeError(String),
+
+    #[error("Unsupported stream filter: {0}")]
+    UnsupportedFilter(String),
 }
 
 impl From<std::io::Error> for PdfError {

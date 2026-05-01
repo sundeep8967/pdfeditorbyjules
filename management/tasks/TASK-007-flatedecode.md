@@ -1,10 +1,10 @@
 # TASK-007: FlateDecode and Object Streams
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Support PDF 1.5+ Object Streams (`ObjStm`) and general stream decompression using the `flate2` crate.
