@@ -85,6 +85,9 @@ pub enum PdfError {
 
     #[error("Failed to parse embedded TrueType font: {0}")]
     InvalidTrueTypeFont(String),
+
+    #[error("Missing Resource Dictionary for XObject")]
+    MissingResourceDictionary,
 }
 
 impl From<std::io::Error> for PdfError {

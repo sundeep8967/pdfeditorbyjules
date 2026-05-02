@@ -214,6 +214,20 @@ impl GraphicsStateProcessor {
                 self.current_state.text_matrix = self.current_state.text_line_matrix.clone();
             }
             // Add other operators as necessary...
+            "Do" => {
+                let _name = extract_name(&op.operands, 0)?;
+                // The PDF spec states that invoking an XObject acts as if it's wrapped in a q/Q pair.
+                // In a fully flushed out rendering pipeline, we would look up `_name` in the Page's `/Resources /XObject` dictionary,
+                // fetch the corresponding object ID from the Document, extract its stream, recursively parse it into ContentOperations,
+                // and then invoke `self.process_op` on those inner operations.
+                //
+                // For MVP, we scaffold the isolation requirement to prove structural completeness.
+                self.state_stack.push(self.current_state.clone());
+                // recursive parsing goes here...
+                if let Some(state) = self.state_stack.pop() {
+                    self.current_state = state;
+                }
+            }
             _ => {} // Ignore unknown operators for now
         }
         Ok(())
