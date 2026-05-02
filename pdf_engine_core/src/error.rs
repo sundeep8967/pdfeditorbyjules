@@ -76,6 +76,9 @@ pub enum PdfError {
 
     #[error("Invalid Graphic Operator: {0}")]
     InvalidGraphicOperator(String),
+
+    #[error("Failed to render page: {0}")]
+    RenderError(String),
 }
 
 impl From<std::io::Error> for PdfError {

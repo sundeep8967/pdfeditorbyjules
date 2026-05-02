@@ -1,10 +1,10 @@
 # TASK-019: 2D Graphics Rasterization
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [x] In Progress | [ ] In Review | [ ] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Convert the PDF coordinate system and Graphics State (from TASK-010) into actual pixels by integrating a 2D rendering engine.
