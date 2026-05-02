@@ -224,3 +224,96 @@ pub extern "C" fn pdf_engine_save_optimized(
         Err(_) => -1,
     }
 }
+
+#[repr(C)]
+pub struct FFITextBoundingBox {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    pub text_ptr: *mut c_char,
+}
+
+#[repr(C)]
+pub struct FFITextArray {
+    pub boxes: *mut FFITextBoundingBox,
+    pub count: usize,
+}
+
+/// Extracts text and bounding boxes for a given page so the mobile UI can overlay selection logic.
+#[no_mangle]
+pub extern "C" fn pdf_engine_extract_page_text(
+    handle: *mut DocumentHandle,
+    page_index: usize,
+) -> FFITextArray {
+    if handle.is_null() {
+        return FFITextArray { boxes: std::ptr::null_mut(), count: 0 };
+    }
+
+    let doc = unsafe { &mut (*handle).inner };
+
+    let pages = match crate::catalog::DocumentCatalog::get_all_pages(doc) {
+        Ok(p) => p,
+        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+    };
+
+    if page_index >= pages.len() {
+        return FFITextArray { boxes: std::ptr::null_mut(), count: 0 };
+    }
+
+    let page_id = pages[page_index];
+
+    let ops = match crate::content::parse_page_contents(doc, page_id) {
+        Ok(o) => o,
+        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+    };
+
+    let mut proc = crate::graphics::GraphicsStateProcessor::new();
+    let text_blocks = match proc.extract_text(&ops) {
+        Ok(t) => t,
+        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+    };
+
+    let mut ffi_boxes = Vec::with_capacity(text_blocks.len());
+    for tb in text_blocks {
+        let text_ptr = match CString::new(tb.text) {
+            Ok(c) => c.into_raw(),
+            Err(_) => std::ptr::null_mut(),
+        };
+
+        ffi_boxes.push(FFITextBoundingBox {
+            x: tb.matrix.e,
+            y: tb.matrix.f,
+            width: tb.matrix.a, // simplified width via CTM
+            height: tb.matrix.d, // simplified height via CTM
+            text_ptr,
+        });
+    }
+
+    let mut boxed_slice = ffi_boxes.into_boxed_slice();
+    let count = boxed_slice.len();
+    let boxes = boxed_slice.as_mut_ptr();
+    std::mem::forget(boxed_slice);
+
+    FFITextArray { boxes, count }
+}
+
+/// Frees the FFITextArray memory.
+#[no_mangle]
+pub extern "C" fn pdf_engine_free_text_array(array: FFITextArray) {
+    if array.boxes.is_null() || array.count == 0 {
+        return;
+    }
+
+    unsafe {
+        let ptr = std::ptr::slice_from_raw_parts_mut(array.boxes, array.count);
+        let boxed_slice = Box::from_raw(ptr);
+
+        // Free inner strings
+        for ffi_box in boxed_slice.iter() {
+            if !ffi_box.text_ptr.is_null() {
+                let _ = CString::from_raw(ffi_box.text_ptr);
+            }
+        }
+    }
+}

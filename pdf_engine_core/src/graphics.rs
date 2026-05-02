@@ -423,3 +423,71 @@ impl Default for ColorSpace {
         ColorSpace::Gray(0.0) // PDF default is black
     }
 }
+
+/// Represents the physical location of a piece of text on the rendered page.
+#[repr(C)]
+#[derive(Debug, Clone, PartialEq)]
+pub struct TextBoundingBox {
+    pub x: f32,
+    pub y: f32,
+    pub width: f32,
+    pub height: f32,
+    // The actual text contained in this box
+    pub text: String,
+}
+
+impl GraphicsStateProcessor {
+    /// Calculates the physical bounding box for an extracted string of text.
+    /// This requires multiplying the text width by the font size, horizontal scaling,
+    /// character spacing, and finally projecting it through the Text Matrix (Tm) and Current Transformation Matrix (CTM).
+    pub fn calculate_text_bounding_box(
+        &self,
+        text: &str,
+        text_matrix: &TransformMatrix,
+        font_size: f32,
+        char_spacing: f32,
+        word_spacing: f32,
+        horizontal_scaling: f32,
+        // In a full implementation, we pass the parsed `TrueTypeFont` here to get exact glyph widths.
+        // For this baseline math, we assume a standard monospace width.
+        _font_width_override: Option<f32>,
+    ) -> TextBoundingBox {
+        // PDF Spec 9.4.4: Text Space Details
+        // The total displacement of a string is the sum of displacements of each character.
+        // Displacement = (w0 - (Tj/1000)) * Tfs * Th + Tc + (Tw if space)
+
+        let mut total_width = 0.0;
+        let t_fs = font_size;
+        let t_h = horizontal_scaling / 100.0;
+
+        for c in text.chars() {
+            // Standard PDF assumed glyph width in 1/1000ths of a unit if font is unknown
+            let w0 = 600.0 / 1000.0;
+
+            let mut char_width = w0 * t_fs * t_h + char_spacing;
+            if c == ' ' {
+                char_width += word_spacing;
+            }
+            total_width += char_width;
+        }
+
+        // The text box starts at the origin of the Text Matrix (Tm.e, Tm.f)
+        // However, this must be projected through the CTM to get physical screen coordinates.
+        let mut base_point = TransformMatrix::new(1.0, 0.0, 0.0, 1.0, text_matrix.e, text_matrix.f);
+        // Self = CTM * BasePoint
+        let ctm_clone = self.current_state.ctm.clone();
+        base_point.multiply(&ctm_clone);
+
+        // Height is roughly the font size projected through the CTM's vertical scaling
+        let height = t_fs * ctm_clone.d;
+        let physical_width = total_width * ctm_clone.a;
+
+        TextBoundingBox {
+            x: base_point.e,
+            y: base_point.f,
+            width: physical_width,
+            height,
+            text: text.to_string(),
+        }
+    }
+}
