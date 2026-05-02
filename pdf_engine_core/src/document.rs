@@ -11,6 +11,7 @@ pub struct PdfDocument {
     pub version: String,
     pub xref_table: XrefTable,
     pub original_startxref: Option<u64>,
+    pub security_handler: Option<crate::crypto::EncryptionHandler>,
 }
 
 impl PdfDocument {
@@ -58,6 +59,7 @@ impl PdfDocument {
             version: version_str,
             xref_table: XrefTable::new(),
             original_startxref: None,
+            security_handler: None,
         })
     }
 

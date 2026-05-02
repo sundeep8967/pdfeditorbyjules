@@ -1,10 +1,10 @@
 # TASK-024: Broken XREF Recovery Heuristics
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Adobe and PDFium can open heavily corrupted PDFs. Our engine must gracefully fallback if the `startxref` marker is missing or points to garbage data.
