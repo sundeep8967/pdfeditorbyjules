@@ -3,7 +3,7 @@
 This document tracks the high-level roadmap to a 100% feature-complete PDF Editor SDK.
 When this tracker hits 100%, the Rust SDK will be fully compiled, capable of handling real-world broken PDFs, rendering them to pixels, and natively editing them.
 
-## Overall Progress: 20% 🟢🟢⚪⚪⚪⚪⚪⚪⚪⚪
+## Overall Progress: 80% 🟢🟢⚪⚪⚪⚪⚪⚪⚪⚪
 
 ---
 
@@ -52,7 +52,7 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 ### Phase 7: Spec Compliance & Edge Cases (0% Complete) ⏳
 *The "Millions of Lines" required to match Adobe's resilience and font rendering.*
 - [x] **TASK-022:** Full Font Subsystem (Parse embedded TrueType/Type1 binaries, `ToUnicode` CMaps).
-- [ ] **TASK-023:** Advanced Image Decoders (`DCTDecode` for JPEG, `JPXDecode` for JPEG2000, `CCITTFaxDecode`).
+- [x] **TASK-023:** Advanced Image Decoders (`DCTDecode` for JPEG, `JPXDecode` for JPEG2000, `CCITTFaxDecode`).
 - [x] **TASK-024:** Broken XREF Recovery Heuristics (Linear scanning to rebuild corrupted trailer maps).
 - [x] **TASK-025:** Security - [ ] **TASK-025:** Security & Encryption Encryption (AES/RC4 decryption handlers for protected files).
 

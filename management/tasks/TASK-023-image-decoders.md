@@ -1,10 +1,10 @@
 # TASK-023: Advanced Image Decoders
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Support decoding image streams embedded in the PDF so they can be rasterized by the rendering engine.

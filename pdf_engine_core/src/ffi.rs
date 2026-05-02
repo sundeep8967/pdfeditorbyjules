@@ -175,13 +175,12 @@ pub extern "C" fn pdf_engine_render_page(
         Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
     };
 
-    pixels.shrink_to_fit();
-    let size = pixels.len();
-    let data = pixels.as_mut_ptr();
+    let mut boxed_slice = pixels.into_boxed_slice();
+    let size = boxed_slice.len();
+    let data = boxed_slice.as_mut_ptr();
 
-    // Leak the vector so Rust doesn't free the memory when this function exits.
-    // The C-caller now owns this memory and must pass it to `pdf_engine_free_pixel_buffer`.
-    std::mem::forget(pixels);
+    // Leak the boxed slice so Rust doesn't free the memory when this function exits.
+    std::mem::forget(boxed_slice);
 
     PixelBuffer {
         data,
@@ -198,7 +197,8 @@ pub extern "C" fn pdf_engine_free_pixel_buffer(buffer: PixelBuffer) {
         return;
     }
     unsafe {
-        let _ = Vec::from_raw_parts(buffer.data, buffer.size, buffer.size);
+        let ptr = std::ptr::slice_from_raw_parts_mut(buffer.data, buffer.size);
+        let _ = Box::from_raw(ptr);
     }
 }
 

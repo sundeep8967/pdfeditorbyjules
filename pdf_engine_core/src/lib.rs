@@ -23,3 +23,4 @@ pub mod render;
 pub mod color;
 pub mod crypto;
 pub mod font;
+pub mod image;
