@@ -20,3 +20,4 @@ pub mod edit;
 pub mod save;
 pub mod ffi;
 pub mod render;
+pub mod color;

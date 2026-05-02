@@ -60,7 +60,7 @@ pub fn render_page_to_pixels(
                     stroke.width = proc.current_state.line_width;
 
                     let mut paint = Paint::default();
-                    paint.set_color_rgba8(0, 0, 0, 255); // Default black stroke
+                    paint.set_color(crate::color::convert_color(&proc.current_state.stroke_color));
 
                     let ctm = &proc.current_state.ctm;
                     let skia_transform = Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
@@ -74,7 +74,7 @@ pub fn render_page_to_pixels(
                 // Fill Path
                 if let Some(path) = path_builder.finish() {
                     let mut paint = Paint::default();
-                    paint.set_color_rgba8(0, 0, 0, 255); // Default black fill
+                    paint.set_color(crate::color::convert_color(&proc.current_state.fill_color));
 
                     let ctm = &proc.current_state.ctm;
                     let skia_transform = Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);

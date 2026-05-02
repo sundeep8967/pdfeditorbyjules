@@ -45,8 +45,8 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 ### Phase 6: Advanced Rendering (0% Complete) ⏳
 *Translating the Graphics State Machine into actual pixels on a screen.*
 - [x] **TASK-019:** Integrate a 2D Graphics library (e.g., `raqote` or `skia-safe`) for rasterization.
-- [ ] **TASK-020:** Map PDF Graphics State (paths, bezier curves, clipping) to 2D Canvas commands.
-- [ ] **TASK-021:** Implement Color Space conversions (CMYK, DeviceRGB, ICCBased).
+- [x] **TASK-020:** Map PDF Graphics State (paths, bezier curves, clipping) to 2D Canvas commands.
+- [x] **TASK-021:** Implement Color Space conversions (CMYK, DeviceRGB, ICCBased).
 
 ### Phase 7: Spec Compliance & Edge Cases (0% Complete) ⏳
 *The "Millions of Lines" required to match Adobe's resilience and font rendering.*

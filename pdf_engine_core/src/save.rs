@@ -56,7 +56,7 @@ impl PdfDocument {
             out_file.write_all(subsection_header.as_bytes())?;
 
             // XREF entry: 10 bytes offset, space, 5 bytes gen, space, 'n', space, CRLF = 20 bytes exact
-            let entry = format!("{:010} {:05} n \r\n", offset, gen_num);
+            let entry = format!("{:010} {:05} n\r\n", offset, gen_num);
             out_file.write_all(entry.as_bytes())?;
         }
 
@@ -220,7 +220,7 @@ impl PdfDocument {
                 }
 
                 if let Some((_, gen_num, offset)) = found_entry {
-                let entry = format!("{:010} {:05} n \r\n", offset, gen_num);
+                let entry = format!("{:010} {:05} n\r\n", offset, gen_num);
                 out_file.write_all(entry.as_bytes())?;
                 } else {
                     out_file.write_all(b"0000000000 00000 f \r\n")?;

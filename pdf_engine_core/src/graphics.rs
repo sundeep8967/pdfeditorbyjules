@@ -54,6 +54,8 @@ pub struct GraphicsState {
 
     // Line state
     pub line_width: f32,
+    pub fill_color: ColorSpace,
+    pub stroke_color: ColorSpace,
 
     // Text state
     pub character_spacing: f32,
@@ -75,6 +77,8 @@ impl Default for GraphicsState {
         Self {
             ctm: TransformMatrix::default(),
             line_width: 1.0,
+            fill_color: ColorSpace::default(),
+            stroke_color: ColorSpace::default(),
             character_spacing: 0.0,
             word_spacing: 0.0,
             horizontal_scaling: 100.0,
@@ -121,6 +125,46 @@ impl GraphicsStateProcessor {
             "cm" => {
                 let m = extract_matrix_operands(&op.operands)?;
                 self.current_state.ctm.multiply(&m);
+            }
+            // -- Color Spaces --
+            "rg" => {
+                self.current_state.fill_color = ColorSpace::RGB(
+                    extract_f32(&op.operands, 0)?,
+                    extract_f32(&op.operands, 1)?,
+                    extract_f32(&op.operands, 2)?,
+                );
+            }
+            "RG" => {
+                self.current_state.stroke_color = ColorSpace::RGB(
+                    extract_f32(&op.operands, 0)?,
+                    extract_f32(&op.operands, 1)?,
+                    extract_f32(&op.operands, 2)?,
+                );
+            }
+            "k" => {
+                self.current_state.fill_color = ColorSpace::CMYK(
+                    extract_f32(&op.operands, 0)?,
+                    extract_f32(&op.operands, 1)?,
+                    extract_f32(&op.operands, 2)?,
+                    extract_f32(&op.operands, 3)?,
+                );
+            }
+            "K" => {
+                self.current_state.stroke_color = ColorSpace::CMYK(
+                    extract_f32(&op.operands, 0)?,
+                    extract_f32(&op.operands, 1)?,
+                    extract_f32(&op.operands, 2)?,
+                    extract_f32(&op.operands, 3)?,
+                );
+            }
+            "g" => {
+                self.current_state.fill_color = ColorSpace::Gray(extract_f32(&op.operands, 0)?);
+            }
+            "G" => {
+                self.current_state.stroke_color = ColorSpace::Gray(extract_f32(&op.operands, 0)?);
+            }
+            "w" => {
+                self.current_state.line_width = extract_f32(&op.operands, 0)?;
             }
             // -- Text State --
             "Tc" => self.current_state.character_spacing = extract_f32(&op.operands, 0)?,
@@ -219,11 +263,11 @@ mod tests {
         let mut proc = GraphicsStateProcessor::new();
 
         proc.process_op(&ContentOperation {
-            operator: "w".into(), // line width (we haven't implemented it, but let's test stack)
-            operands: vec![],
+            operator: "w".into(), // line width
+            operands: vec![PdfObject::Real(5.0)], // Actually provide the operand
         }).unwrap();
 
-        proc.current_state.line_width = 5.0; // Manual mutate
+
 
         proc.process_op(&ContentOperation { operator: "q".into(), operands: vec![] }).unwrap();
         proc.current_state.line_width = 10.0;
@@ -350,5 +394,18 @@ mod text_tests {
         let extracted = proc.extract_text(&ops).unwrap();
         assert_eq!(extracted.len(), 1);
         assert_eq!(extracted[0].text, "World"); // Ignoring the 120 kerning offset
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ColorSpace {
+    RGB(f32, f32, f32),
+    CMYK(f32, f32, f32, f32),
+    Gray(f32),
+}
+
+impl Default for ColorSpace {
+    fn default() -> Self {
+        ColorSpace::Gray(0.0) // PDF default is black
     }
 }
