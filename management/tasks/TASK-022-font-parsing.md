@@ -1,10 +1,10 @@
 # TASK-022: Full Font Subsystem
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [ ] Done
+[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
 
 ## Owner
-@unassigned
+@jules
 
 ## Objective
 Correctly map byte codes from text operators into Unicode strings using embedded font dictionaries, addressing the most complex part of the PDF specification.

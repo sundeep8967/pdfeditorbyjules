@@ -39,6 +39,7 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 - [x] **TASK-016:** Expose `DocumentHandle`, `PageHandle`, and Edit APIs.
 - [x] **TASK-017:** Generate Android JNI / JNA bindings.
 - [x] **TASK-018:** Generate iOS Swift/C-Header bindings.
+- [x] **TASK-026:** Expose Rendering RGBA endpoints.
 
 ---
 
@@ -50,7 +51,7 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 
 ### Phase 7: Spec Compliance & Edge Cases (0% Complete) ⏳
 *The "Millions of Lines" required to match Adobe's resilience and font rendering.*
-- [ ] **TASK-022:** Full Font Subsystem (Parse embedded TrueType/Type1 binaries, `ToUnicode` CMaps).
+- [x] **TASK-022:** Full Font Subsystem (Parse embedded TrueType/Type1 binaries, `ToUnicode` CMaps).
 - [ ] **TASK-023:** Advanced Image Decoders (`DCTDecode` for JPEG, `JPXDecode` for JPEG2000, `CCITTFaxDecode`).
 - [x] **TASK-024:** Broken XREF Recovery Heuristics (Linear scanning to rebuild corrupted trailer maps).
 - [x] **TASK-025:** Security - [ ] **TASK-025:** Security & Encryption Encryption (AES/RC4 decryption handlers for protected files).

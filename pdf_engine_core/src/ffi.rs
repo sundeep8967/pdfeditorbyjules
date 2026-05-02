@@ -130,3 +130,97 @@ pub extern "C" fn pdf_engine_replace_text(
 
     count as i32
 }
+
+#[repr(C)]
+pub struct PixelBuffer {
+    pub data: *mut u8,
+    pub size: usize,
+    pub width: u32,
+    pub height: u32,
+}
+
+/// Renders a specific page to an RGBA pixel buffer.
+/// The caller MUST free the buffer using `pdf_engine_free_pixel_buffer`.
+#[no_mangle]
+pub extern "C" fn pdf_engine_render_page(
+    handle: *mut DocumentHandle,
+    page_index: usize,
+    width: u32,
+    height: u32,
+) -> PixelBuffer {
+    if handle.is_null() {
+        return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 };
+    }
+
+    let doc = unsafe { &mut (*handle).inner };
+
+    let pages = match crate::catalog::DocumentCatalog::get_all_pages(doc) {
+        Ok(p) => p,
+        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+    };
+
+    if page_index >= pages.len() {
+        return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 };
+    }
+
+    let page_id = pages[page_index];
+
+    let ops = match crate::content::parse_page_contents(doc, page_id) {
+        Ok(o) => o,
+        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+    };
+
+    let mut pixels = match crate::render::render_page_to_pixels(width, height, &ops) {
+        Ok(p) => p,
+        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+    };
+
+    pixels.shrink_to_fit();
+    let size = pixels.len();
+    let data = pixels.as_mut_ptr();
+
+    // Leak the vector so Rust doesn't free the memory when this function exits.
+    // The C-caller now owns this memory and must pass it to `pdf_engine_free_pixel_buffer`.
+    std::mem::forget(pixels);
+
+    PixelBuffer {
+        data,
+        size,
+        width,
+        height,
+    }
+}
+
+/// Frees a pixel buffer previously returned by `pdf_engine_render_page`.
+#[no_mangle]
+pub extern "C" fn pdf_engine_free_pixel_buffer(buffer: PixelBuffer) {
+    if buffer.data.is_null() || buffer.size == 0 {
+        return;
+    }
+    unsafe {
+        let _ = Vec::from_raw_parts(buffer.data, buffer.size, buffer.size);
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn pdf_engine_save_optimized(
+    handle: *mut DocumentHandle,
+    path: *const c_char,
+) -> i32 {
+    if handle.is_null() || path.is_null() {
+        return -1;
+    }
+
+    let doc = unsafe { &mut (*handle).inner };
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return -1,
+    };
+
+    match doc.save_optimized(path_str) {
+        Ok(_) => 0,
+        Err(_) => -1,
+    }
+}

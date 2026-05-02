@@ -22,3 +22,4 @@ pub mod ffi;
 pub mod render;
 pub mod color;
 pub mod crypto;
+pub mod font;

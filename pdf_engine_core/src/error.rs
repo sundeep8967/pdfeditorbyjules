@@ -79,6 +79,9 @@ pub enum PdfError {
 
     #[error("Failed to render page: {0}")]
     RenderError(String),
+
+    #[error("Failed to parse CMap stream")]
+    InvalidCMap,
 }
 
 impl From<std::io::Error> for PdfError {
