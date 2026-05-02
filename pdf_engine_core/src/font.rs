@@ -247,3 +247,43 @@ mod tests {
         assert_eq!(cmap.mapping.get(&3).unwrap(), "C");
     }
 }
+
+use ttf_parser::Face;
+
+/// Wrapper around a parsed TrueType Font Face.
+pub struct TrueTypeFont<'a> {
+    pub face: Face<'a>,
+}
+
+impl<'a> TrueTypeFont<'a> {
+    /// Loads a TrueType font from a raw, decompressed byte stream extracted from a PDF `/FontFile2`.
+    pub fn parse(font_data: &'a [u8]) -> Result<Self, PdfError> {
+        let face = Face::parse(font_data, 0)
+            .map_err(|e| PdfError::InvalidTrueTypeFont(e.to_string()))?;
+
+        Ok(Self { face })
+    }
+
+    /// Retrieves the exact mathematical width of a character from the `hmtx` table.
+    /// This is crucial for rendering text exactly where Adobe expects it, avoiding overlaps.
+    pub fn get_glyph_width(&self, char_code: char) -> Option<u16> {
+        let glyph_id = self.face.glyph_index(char_code)?;
+        self.face.glyph_hor_advance(glyph_id)
+    }
+}
+
+#[cfg(test)]
+mod ttf_tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_invalid_truetype() {
+        // Pass garbage data to ensure it fails safely without panicking.
+        let garbage = b"Not a TrueType Font!";
+        let result = TrueTypeFont::parse(garbage);
+        assert!(matches!(result, Err(PdfError::InvalidTrueTypeFont(_))));
+    }
+
+    // In a real testing environment, we would include a tiny valid `.ttf` file
+    // inside a `tests/fixtures/` directory to test `get_glyph_width` successfully.
+}

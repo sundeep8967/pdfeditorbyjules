@@ -58,3 +58,4 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 
 ---
 *Progress is updated at the end of every task completion.*
+- [x] **TASK-027:** TrueType Parser Integration (Embedded Font extraction).
