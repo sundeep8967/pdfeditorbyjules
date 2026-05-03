@@ -106,6 +106,14 @@ mod tests {
 use crate::xref::{XrefEntry, XrefTable};
 use std::io::BufRead;
 
+fn read_line_limited<R: BufRead>(reader: &mut R, line: &mut String, limit: u64) -> Result<usize, PdfError> {
+    let n = reader.by_ref().take(limit).read_line(line)?;
+    if n as u64 == limit && !line.ends_with('\n') && !line.ends_with('\r') {
+        return Err(PdfError::InvalidXrefFormat);
+    }
+    Ok(n)
+}
+
 /// Parses an XREF table from a given byte offset in the file.
 pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfError> {
     file.seek(SeekFrom::Start(offset))?;
@@ -113,7 +121,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
     let mut line = String::new();
 
     // Read the "xref" keyword
-    reader.read_line(&mut line)?;
+    read_line_limited(&mut reader, &mut line, 1024)?;
     if !line.trim().starts_with("xref") {
         return Err(PdfError::InvalidXrefFormat);
     }
@@ -122,7 +130,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
     let mut table = XrefTable::new();
 
     // Read subsections
-    while reader.read_line(&mut line)? > 0 {
+    while read_line_limited(&mut reader, &mut line, 1024)? > 0 {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             line.clear();
@@ -143,7 +151,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
         line.clear();
 
         for i in 0..count {
-            reader.read_line(&mut line)?;
+            read_line_limited(&mut reader, &mut line, 1024)?;
             let entry_parts: Vec<&str> = line.trim().split_whitespace().collect();
             if entry_parts.len() < 3 {
                 return Err(PdfError::InvalidXrefFormat);
@@ -189,5 +197,21 @@ mod xref_tests {
         } else {
             panic!("Expected InUse entry");
         }
+    }
+
+    #[test]
+    fn test_parse_xref_table_oversized_line() {
+        let mut file = NamedTempFile::new().unwrap();
+        // Construct an XREF table with an extremely long line
+        let mut xref_data = b"xref\n".to_vec();
+        xref_data.extend(vec![b'A'; 2048]); // 2048 bytes, exceeds 1024 limit
+        xref_data.push(b'\n');
+        xref_data.extend_from_slice(b"0 1\ntrailer\n");
+        file.write_all(&xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
     }
 }
