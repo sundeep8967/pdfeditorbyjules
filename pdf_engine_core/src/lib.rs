@@ -24,3 +24,4 @@ pub mod graphics;
 pub mod image;
 pub mod render;
 pub mod save;
+pub mod pdfium_bridge;

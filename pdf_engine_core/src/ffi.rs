@@ -369,3 +369,38 @@ pub extern "C" fn pdf_engine_free_text_array(array: FFITextArray) {
         }
     }
 }
+
+#[no_mangle]
+pub extern "C" fn pdf_engine_render_page_hybrid(
+    path: *const c_char,
+    page_index: usize,
+    width: u32,
+    height: u32,
+) -> PixelBuffer {
+    if path.is_null() {
+        return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 };
+    }
+
+    let c_str = unsafe { CStr::from_ptr(path) };
+    let path_str = match c_str.to_str() {
+        Ok(s) => s,
+        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+    };
+
+    let pixels = match crate::pdfium_bridge::render_page_with_pdfium(path_str, page_index, width, height) {
+        Ok(p) => p,
+        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+    };
+
+    let mut boxed_slice = pixels.into_boxed_slice();
+    let size = boxed_slice.len();
+    let data = boxed_slice.as_mut_ptr();
+    std::mem::forget(boxed_slice);
+
+    PixelBuffer {
+        data,
+        size,
+        width,
+        height,
+    }
+}

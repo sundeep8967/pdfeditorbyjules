@@ -19,6 +19,8 @@ jpeg-decoder = "0.3.2"
 ttf-parser = "0.25.1"
 rc4 = "0.2.0"
 cbc = "0.2.0"
+pdfium-render = "0.9.1"
+lazy_static = "1.5.0"
 
 [dev-dependencies]
 tempfile = "3.27.0"
