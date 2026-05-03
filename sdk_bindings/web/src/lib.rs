@@ -1,6 +1,6 @@
 use pdf_engine_core::ffi::{
     pdf_engine_free_document, pdf_engine_free_pixel_buffer, pdf_engine_open_document,
-    pdf_engine_render_page, pdf_engine_replace_text, pdf_engine_save_optimized, DocumentHandle, PixelBuffer,
+    pdf_engine_render_page, pdf_engine_replace_text, pdf_engine_save_optimized, DocumentHandle,
 };
 use wasm_bindgen::prelude::*;
 use std::ffi::CString;
@@ -8,6 +8,7 @@ use std::ffi::CString;
 #[wasm_bindgen]
 pub struct WasmPdfDocument {
     handle: *mut DocumentHandle,
+    path: String,
 }
 
 #[wasm_bindgen]
@@ -19,7 +20,7 @@ impl WasmPdfDocument {
         if handle.is_null() {
             None
         } else {
-            Some(WasmPdfDocument { handle })
+            Some(WasmPdfDocument { handle, path: path.to_string() })
         }
     }
 
@@ -42,6 +43,13 @@ impl WasmPdfDocument {
         if self.handle.is_null() {
             return None;
         }
+
+        // Hybrid Architecture: The WebAssembly module operates in a browser sandbox.
+        // It cannot directly execute C++ binaries or use `pdfium-render` via `load_pdf_from_file`
+        // because `wasm32-unknown-unknown` doesn't support the OS filesystem or dynamic `.so` libraries.
+        // Therefore, for the WASM target, we continue to rely on the pure-Rust `tiny-skia` renderer
+        // exposed via the standard `pdf_engine_render_page`.
+        // The `pdf_engine_render_page_hybrid` is intentionally left for native targets (Android/iOS/Linux).
 
         let pixel_buffer = pdf_engine_render_page(self.handle, page_index, width, height);
 

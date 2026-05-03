@@ -143,12 +143,6 @@ impl GraphicsStateProcessor {
                 let m = extract_matrix_operands(&op.operands)?;
                 self.current_state.ctm.multiply(&m);
             }
-            "ca" => {
-                self.current_state.fill_alpha = extract_f32(&op.operands, 0)?;
-            }
-            "CA" => {
-                self.current_state.stroke_alpha = extract_f32(&op.operands, 0)?;
-            }
             // -- Color Spaces --
             "rg" => {
                 self.current_state.fill_color = ColorSpace::RGB(
@@ -531,33 +525,5 @@ impl GraphicsStateProcessor {
             height,
             text: text.to_string(),
         }
-    }
-}
-
-#[cfg(test)]
-mod trans_tests {
-    use super::*;
-    use crate::content::ContentOperation;
-    use crate::object::PdfObject;
-
-    #[test]
-    fn test_alpha_operators() {
-        let mut proc = GraphicsStateProcessor::new();
-        assert_eq!(proc.current_state.fill_alpha, 1.0);
-        assert_eq!(proc.current_state.stroke_alpha, 1.0);
-
-        let op1 = ContentOperation {
-            operator: "ca".to_string(),
-            operands: vec![PdfObject::Real(0.5)],
-        };
-        proc.process_op(&op1).unwrap();
-        assert_eq!(proc.current_state.fill_alpha, 0.5);
-
-        let op2 = ContentOperation {
-            operator: "CA".to_string(),
-            operands: vec![PdfObject::Real(0.75)],
-        };
-        proc.process_op(&op2).unwrap();
-        assert_eq!(proc.current_state.stroke_alpha, 0.75);
     }
 }

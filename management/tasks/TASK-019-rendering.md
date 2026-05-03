@@ -1,7 +1,7 @@
 # TASK-019: 2D Graphics Rasterization
 
 ## Status
-[ ] Not Started | [ ] In Progress | [ ] In Review | [x] Done
+[ ] Not Started | [x] In Progress | [ ] In Review | [ ] Done
 
 ## Owner
 @jules
