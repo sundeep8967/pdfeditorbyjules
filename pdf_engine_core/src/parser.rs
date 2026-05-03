@@ -190,4 +190,17 @@ mod xref_tests {
             panic!("Expected InUse entry");
         }
     }
+
+    #[test]
+    fn test_parse_xref_table_invalid_keyword() {
+        let mut file = NamedTempFile::new().unwrap();
+        // Missing "xref" keyword, starts directly with subsection header
+        let xref_data = b"0 1\n0000000000 65535 f \ntrailer\n";
+        file.write_all(xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
+    }
 }
