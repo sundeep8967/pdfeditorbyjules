@@ -133,25 +133,37 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
         }
 
         // Subsection header: <start_obj_num> <count>
-        let parts: Vec<&str> = trimmed.split_whitespace().collect();
-        if parts.len() != 2 {
+        let mut parts = trimmed.split_whitespace();
+        let start_obj: u32 = parts
+            .next()
+            .ok_or(PdfError::InvalidXrefFormat)?
+            .parse()
+            .map_err(|_| PdfError::InvalidXrefFormat)?;
+        let count: u32 = parts
+            .next()
+            .ok_or(PdfError::InvalidXrefFormat)?
+            .parse()
+            .map_err(|_| PdfError::InvalidXrefFormat)?;
+
+        if parts.next().is_some() {
             return Err(PdfError::InvalidXrefFormat);
         }
-
-        let start_obj: u32 = parts[0].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
-        let count: u32 = parts[1].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
         line.clear();
 
         for i in 0..count {
             reader.read_line(&mut line)?;
-            let entry_parts: Vec<&str> = line.trim().split_whitespace().collect();
-            if entry_parts.len() < 3 {
-                return Err(PdfError::InvalidXrefFormat);
-            }
-
-            let num1: u64 = entry_parts[0].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
-            let gen: u16 = entry_parts[1].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
-            let status = entry_parts[2];
+            let mut entry_parts = line.trim().split_whitespace();
+            let num1: u64 = entry_parts
+                .next()
+                .ok_or(PdfError::InvalidXrefFormat)?
+                .parse()
+                .map_err(|_| PdfError::InvalidXrefFormat)?;
+            let gen: u16 = entry_parts
+                .next()
+                .ok_or(PdfError::InvalidXrefFormat)?
+                .parse()
+                .map_err(|_| PdfError::InvalidXrefFormat)?;
+            let status = entry_parts.next().ok_or(PdfError::InvalidXrefFormat)?;
 
             let entry = match status {
                 "n" => XrefEntry::InUse { byte_offset: num1, generation_number: gen },
