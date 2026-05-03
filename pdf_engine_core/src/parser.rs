@@ -381,4 +381,17 @@ trailer\n<< /Size 3 /Root 1 0 R >>\n";
         let trailer = table.trailer().expect("Trailer not recovered");
         assert_eq!(trailer.get("Size").unwrap(), &PdfObject::Integer(3));
     }
+
+    #[test]
+    fn test_parse_xref_table_invalid_keyword() {
+        let mut file = NamedTempFile::new().unwrap();
+        // Missing "xref" keyword, starts directly with subsection header
+        let xref_data = b"0 1\n0000000000 65535 f \ntrailer\n";
+        file.write_all(xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
+    }
 }
