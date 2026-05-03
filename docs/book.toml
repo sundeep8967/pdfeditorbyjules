@@ -1,0 +1,9 @@
+[book]
+authors = ["Product & DX Team"]
+language = "en"
+src = "src"
+title = "PDF Editor SDK - C-ABI Reference"
+
+[build]
+build-dir = "book"
+create-missing = false
