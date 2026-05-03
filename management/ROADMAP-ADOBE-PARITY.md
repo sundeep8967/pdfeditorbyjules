@@ -33,3 +33,20 @@ Here is the revised 4-Phase Timeline to achieve our goals (18-36 months):
 - **Deliverables:**
   - Passes 99%+ of ISO 32000-2 compliance tests.
   - GPU-accelerated rendering engine for massive 500MB+ documents.
+
+## The "Maturity vs. Capability" Philosophy
+The decision to adopt a hybrid architecture is fundamentally about **maturity, not capability**.
+
+- **The Reality of PDF:** PDF rendering is 30+ years of accumulated engineering. PDFium alone consists of millions of lines of battle-tested code.
+- **Font Shaping:** HarfBuzz took ~15 years to reach its current quality. While Rust ports (`rustybuzz`) are progressing, they are not yet fully feature-equivalent for the edge cases required by PDF.
+- **Complexity:** Color management, ICC profiles, and transparency groups are deeply complex specifications.
+- **Wild West Testing:** C++ PDF libraries have been tested against millions of real-world, malformed PDFs. Rust alternatives simply have not had that exposure yet.
+
+| Factor | Pure Rust Today |
+| :--- | :--- |
+| Theoretically possible | ✅ Yes |
+| Production-ready right now | ❌ No |
+| Achievable in 5-10 years | ✅ Likely |
+| Better long-term choice | ✅ Arguably yes |
+
+**The Honest Summary:** The hybrid approach isn't chosen because Rust *can't* do it — it's chosen because reimplementing decades of C++ work from scratch is a research project, not a business decision. We need to ship a commercial product.
