@@ -1,13 +1,17 @@
 use crate::error::PdfError;
-use tiny_skia::Pixmap;
 use jpeg_decoder::Decoder;
 use std::io::Cursor;
+use tiny_skia::Pixmap;
 
 /// Decodes raw DCT (JPEG) bytes into a raw RGBA Pixmap for tiny-skia.
 pub fn decode_jpeg(data: &[u8]) -> Result<Pixmap, PdfError> {
     let mut decoder = Decoder::new(Cursor::new(data));
-    let pixels = decoder.decode().map_err(|e| PdfError::FilterDecodeError(format!("JPEG Decode error: {}", e)))?;
-    let info = decoder.info().ok_or_else(|| PdfError::FilterDecodeError("Failed to get JPEG info".into()))?;
+    let pixels = decoder
+        .decode()
+        .map_err(|e| PdfError::FilterDecodeError(format!("JPEG Decode error: {}", e)))?;
+    let info = decoder
+        .info()
+        .ok_or_else(|| PdfError::FilterDecodeError("Failed to get JPEG info".into()))?;
 
     let mut pixmap = Pixmap::new(info.width as u32, info.height as u32)
         .ok_or_else(|| PdfError::RenderError("Failed to allocate Pixmap for JPEG".into()))?;
@@ -21,7 +25,7 @@ pub fn decode_jpeg(data: &[u8]) -> Result<Pixmap, PdfError> {
                 rgba_pixels.push(chunk[0]); // R
                 rgba_pixels.push(chunk[1]); // G
                 rgba_pixels.push(chunk[2]); // B
-                rgba_pixels.push(255);      // A
+                rgba_pixels.push(255); // A
             }
         }
         jpeg_decoder::PixelFormat::CMYK32 => {
@@ -45,7 +49,11 @@ pub fn decode_jpeg(data: &[u8]) -> Result<Pixmap, PdfError> {
                 rgba_pixels.push(255);
             }
         }
-        _ => return Err(PdfError::FilterDecodeError("Unsupported JPEG pixel format".into())),
+        _ => {
+            return Err(PdfError::FilterDecodeError(
+                "Unsupported JPEG pixel format".into(),
+            ))
+        }
     }
 
     // Load into Pixmap
@@ -57,7 +65,10 @@ pub fn decode_jpeg(data: &[u8]) -> Result<Pixmap, PdfError> {
 }
 
 /// Parses an XObject Dictionary to figure out width, height, and color space, then delegates to decoders.
-pub fn load_image_xobject(dict: &crate::object::PdfDictionary, raw_stream: &[u8]) -> Result<Pixmap, PdfError> {
+pub fn load_image_xobject(
+    dict: &crate::object::PdfDictionary,
+    raw_stream: &[u8],
+) -> Result<Pixmap, PdfError> {
     let filter = match dict.get("Filter") {
         Some(crate::object::PdfObject::Name(n)) => n.as_str(),
         _ => "None",
@@ -65,7 +76,10 @@ pub fn load_image_xobject(dict: &crate::object::PdfDictionary, raw_stream: &[u8]
 
     match filter {
         "DCTDecode" => decode_jpeg(raw_stream),
-        _ => Err(PdfError::UnsupportedFilter(format!("Image Filter: {}", filter))),
+        _ => Err(PdfError::UnsupportedFilter(format!(
+            "Image Filter: {}",
+            filter
+        ))),
     }
 }
 

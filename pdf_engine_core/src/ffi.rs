@@ -1,6 +1,6 @@
+use crate::document::PdfDocument;
 use std::ffi::{CStr, CString};
 use std::os::raw::c_char;
-use crate::document::PdfDocument;
 
 /// Opaque pointer to the Rust document for C bindings
 pub struct DocumentHandle {
@@ -149,30 +149,61 @@ pub extern "C" fn pdf_engine_render_page(
     height: u32,
 ) -> PixelBuffer {
     if handle.is_null() {
-        return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 };
+        return PixelBuffer {
+            data: std::ptr::null_mut(),
+            size: 0,
+            width: 0,
+            height: 0,
+        };
     }
 
     let doc = unsafe { &mut (*handle).inner };
 
     let pages = match crate::catalog::DocumentCatalog::get_all_pages(doc) {
         Ok(p) => p,
-        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+        Err(_) => {
+            return PixelBuffer {
+                data: std::ptr::null_mut(),
+                size: 0,
+                width: 0,
+                height: 0,
+            }
+        }
     };
 
     if page_index >= pages.len() {
-        return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 };
+        return PixelBuffer {
+            data: std::ptr::null_mut(),
+            size: 0,
+            width: 0,
+            height: 0,
+        };
     }
 
     let page_id = pages[page_index];
 
     let ops = match crate::content::parse_page_contents(doc, page_id) {
         Ok(o) => o,
-        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+        Err(_) => {
+            return PixelBuffer {
+                data: std::ptr::null_mut(),
+                size: 0,
+                width: 0,
+                height: 0,
+            }
+        }
     };
 
-    let mut pixels = match crate::render::render_page_to_pixels(width, height, &ops) {
+    let pixels = match crate::render::render_page_to_pixels(width, height, &ops) {
         Ok(p) => p,
-        Err(_) => return PixelBuffer { data: std::ptr::null_mut(), size: 0, width: 0, height: 0 },
+        Err(_) => {
+            return PixelBuffer {
+                data: std::ptr::null_mut(),
+                size: 0,
+                width: 0,
+                height: 0,
+            }
+        }
     };
 
     let mut boxed_slice = pixels.into_boxed_slice();
@@ -247,31 +278,52 @@ pub extern "C" fn pdf_engine_extract_page_text(
     page_index: usize,
 ) -> FFITextArray {
     if handle.is_null() {
-        return FFITextArray { boxes: std::ptr::null_mut(), count: 0 };
+        return FFITextArray {
+            boxes: std::ptr::null_mut(),
+            count: 0,
+        };
     }
 
     let doc = unsafe { &mut (*handle).inner };
 
     let pages = match crate::catalog::DocumentCatalog::get_all_pages(doc) {
         Ok(p) => p,
-        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+        Err(_) => {
+            return FFITextArray {
+                boxes: std::ptr::null_mut(),
+                count: 0,
+            }
+        }
     };
 
     if page_index >= pages.len() {
-        return FFITextArray { boxes: std::ptr::null_mut(), count: 0 };
+        return FFITextArray {
+            boxes: std::ptr::null_mut(),
+            count: 0,
+        };
     }
 
     let page_id = pages[page_index];
 
     let ops = match crate::content::parse_page_contents(doc, page_id) {
         Ok(o) => o,
-        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+        Err(_) => {
+            return FFITextArray {
+                boxes: std::ptr::null_mut(),
+                count: 0,
+            }
+        }
     };
 
     let mut proc = crate::graphics::GraphicsStateProcessor::new();
     let text_blocks = match proc.extract_text(&ops) {
         Ok(t) => t,
-        Err(_) => return FFITextArray { boxes: std::ptr::null_mut(), count: 0 },
+        Err(_) => {
+            return FFITextArray {
+                boxes: std::ptr::null_mut(),
+                count: 0,
+            }
+        }
     };
 
     let mut ffi_boxes = Vec::with_capacity(text_blocks.len());
@@ -284,7 +336,7 @@ pub extern "C" fn pdf_engine_extract_page_text(
         ffi_boxes.push(FFITextBoundingBox {
             x: tb.matrix.e,
             y: tb.matrix.f,
-            width: tb.matrix.a, // simplified width via CTM
+            width: tb.matrix.a,  // simplified width via CTM
             height: tb.matrix.d, // simplified height via CTM
             text_ptr,
         });

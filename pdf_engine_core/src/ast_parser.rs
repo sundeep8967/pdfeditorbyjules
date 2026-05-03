@@ -27,7 +27,9 @@ impl<'a> Parser<'a> {
 
     fn parse_object_with_depth(&mut self, depth: usize) -> Result<PdfObject, PdfError> {
         if depth > 100 {
-            return Err(PdfError::InvalidSyntax("Max recursion depth exceeded".into()));
+            return Err(PdfError::InvalidSyntax(
+                "Max recursion depth exceeded".into(),
+            ));
         }
         let token = match self.current_token.take() {
             Some(t) => t,
@@ -106,7 +108,10 @@ impl<'a> Parser<'a> {
                     return Ok(PdfObject::Real(float_val));
                 }
 
-                Err(PdfError::InvalidSyntax(format!("Invalid number format: {}", s)))
+                Err(PdfError::InvalidSyntax(format!(
+                    "Invalid number format: {}",
+                    s
+                )))
             }
             PdfToken::Keyword(kw) => {
                 self.advance()?;
@@ -121,7 +126,11 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 let mut array = Vec::new();
                 loop {
-                    let is_end = if let Some(PdfToken::ArrayEnd) = self.current_token { true } else { false };
+                    let is_end = if let Some(PdfToken::ArrayEnd) = self.current_token {
+                        true
+                    } else {
+                        false
+                    };
                     if is_end {
                         self.advance()?;
                         break;
@@ -138,7 +147,11 @@ impl<'a> Parser<'a> {
                 self.advance()?;
                 let mut dict = PdfDictionary::new();
                 loop {
-                    let is_end = if let Some(PdfToken::DictEnd) = self.current_token { true } else { false };
+                    let is_end = if let Some(PdfToken::DictEnd) = self.current_token {
+                        true
+                    } else {
+                        false
+                    };
                     if is_end {
                         self.advance()?;
                         break;
@@ -165,10 +178,7 @@ impl<'a> Parser<'a> {
 
                 if let Some(data) = stream_data {
                     self.advance()?; // Consume the stream block
-                    return Ok(PdfObject::Stream(PdfStream {
-                        dict,
-                        data,
-                    }));
+                    return Ok(PdfObject::Stream(PdfStream { dict, data }));
                 }
 
                 Ok(PdfObject::Dictionary(dict))
@@ -187,8 +197,14 @@ mod tests {
         let lexer = Lexer::new(b"/Name (String) 123 -4.5 true false null");
         let mut parser = Parser::new(lexer).unwrap();
 
-        assert_eq!(parser.parse_object().unwrap(), PdfObject::Name("Name".into()));
-        assert_eq!(parser.parse_object().unwrap(), PdfObject::String(b"String".to_vec()));
+        assert_eq!(
+            parser.parse_object().unwrap(),
+            PdfObject::Name("Name".into())
+        );
+        assert_eq!(
+            parser.parse_object().unwrap(),
+            PdfObject::String(b"String".to_vec())
+        );
         assert_eq!(parser.parse_object().unwrap(), PdfObject::Integer(123));
         assert_eq!(parser.parse_object().unwrap(), PdfObject::Real(-4.5));
         assert_eq!(parser.parse_object().unwrap(), PdfObject::Boolean(true));
@@ -201,10 +217,13 @@ mod tests {
         let lexer = Lexer::new(b"10 0 R");
         let mut parser = Parser::new(lexer).unwrap();
 
-        assert_eq!(parser.parse_object().unwrap(), PdfObject::Reference(ObjectId {
-            object_number: 10,
-            generation_number: 0,
-        }));
+        assert_eq!(
+            parser.parse_object().unwrap(),
+            PdfObject::Reference(ObjectId {
+                object_number: 10,
+                generation_number: 0,
+            })
+        );
     }
 
     #[test]
@@ -212,7 +231,10 @@ mod tests {
         let lexer = Lexer::new(b"10 0 obj\n/Page\nendobj");
         let mut parser = Parser::new(lexer).unwrap();
 
-        assert_eq!(parser.parse_object().unwrap(), PdfObject::Name("Page".into()));
+        assert_eq!(
+            parser.parse_object().unwrap(),
+            PdfObject::Name("Page".into())
+        );
     }
 
     #[test]

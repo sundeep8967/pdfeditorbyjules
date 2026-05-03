@@ -1,5 +1,5 @@
-use std::io::Read;
 use flate2::read::ZlibDecoder;
+use std::io::Read;
 
 use crate::error::PdfError;
 use crate::object::{PdfObject, PdfStream};
@@ -20,12 +20,18 @@ pub fn decode_stream(stream: &PdfStream) -> Result<Vec<u8>, PdfError> {
                 if let PdfObject::Name(name) = obj {
                     names.push(name.clone());
                 } else {
-                    return Err(PdfError::InvalidSyntax("Filter array contains non-Name object".into()));
+                    return Err(PdfError::InvalidSyntax(
+                        "Filter array contains non-Name object".into(),
+                    ));
                 }
             }
             names
         }
-        _ => return Err(PdfError::InvalidSyntax("Filter must be a Name or Array of Names".into())),
+        _ => {
+            return Err(PdfError::InvalidSyntax(
+                "Filter must be a Name or Array of Names".into(),
+            ))
+        }
     };
 
     let mut current_data = stream.data.clone();
@@ -42,7 +48,8 @@ fn apply_decode_filter(filter_name: &str, data: &[u8]) -> Result<Vec<u8>, PdfErr
         "FlateDecode" | "Fl" => {
             let mut decoder = ZlibDecoder::new(data);
             let mut decompressed = Vec::new();
-            decoder.read_to_end(&mut decompressed)
+            decoder
+                .read_to_end(&mut decompressed)
                 .map_err(|e| PdfError::FilterDecodeError(e.to_string()))?;
             Ok(decompressed)
         }
@@ -62,7 +69,11 @@ fn apply_decode_filter(filter_name: &str, data: &[u8]) -> Result<Vec<u8>, PdfErr
                     b'0'..=b'9' => byte - b'0',
                     b'a'..=b'f' => byte - b'a' + 10,
                     b'A'..=b'F' => byte - b'A' + 10,
-                    _ => return Err(PdfError::FilterDecodeError("Invalid character in ASCIIHexDecode".into())),
+                    _ => {
+                        return Err(PdfError::FilterDecodeError(
+                            "Invalid character in ASCIIHexDecode".into(),
+                        ))
+                    }
                 };
 
                 if let Some(high) = high_nibble {
@@ -80,12 +91,8 @@ fn apply_decode_filter(filter_name: &str, data: &[u8]) -> Result<Vec<u8>, PdfErr
 
             Ok(decoded)
         }
-        "ASCII85Decode" | "A85" => {
-            Err(PdfError::UnsupportedFilter("ASCII85Decode".into()))
-        }
-        "LZWDecode" | "LZW" => {
-            Err(PdfError::UnsupportedFilter("LZWDecode".into()))
-        }
+        "ASCII85Decode" | "A85" => Err(PdfError::UnsupportedFilter("ASCII85Decode".into())),
+        "LZWDecode" | "LZW" => Err(PdfError::UnsupportedFilter("LZWDecode".into())),
         _ => Err(PdfError::UnsupportedFilter(filter_name.to_string())),
     }
 }

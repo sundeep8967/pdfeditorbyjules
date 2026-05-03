@@ -1,8 +1,8 @@
-use crate::error::PdfError;
-use crate::object::{ObjectId, PdfObject};
-use crate::document::PdfDocument;
-use crate::lexer::Lexer;
 use crate::ast_parser::Parser as AstParser;
+use crate::document::PdfDocument;
+use crate::error::PdfError;
+use crate::lexer::Lexer;
+use crate::object::{ObjectId, PdfObject};
 
 pub struct DocumentCatalog {
     pub root_id: ObjectId,
@@ -46,7 +46,11 @@ fn load_object(doc: &mut PdfDocument, id: ObjectId) -> Result<PdfObject, PdfErro
 }
 
 /// Recursively traverses the Pages tree to flatten all "Page" nodes into a list.
-fn traverse_page_tree(doc: &mut PdfDocument, node_id: ObjectId, out_pages: &mut Vec<ObjectId>) -> Result<(), PdfError> {
+fn traverse_page_tree(
+    doc: &mut PdfDocument,
+    node_id: ObjectId,
+    out_pages: &mut Vec<ObjectId>,
+) -> Result<(), PdfError> {
     let node_obj = load_object(doc, node_id)?;
     let node_dict = match node_obj {
         PdfObject::Dictionary(d) => d,
@@ -85,9 +89,9 @@ fn traverse_page_tree(doc: &mut PdfDocument, node_id: ObjectId, out_pages: &mut 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::NamedTempFile;
-    use std::io::Write;
     use crate::xref::XrefEntry;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_traverse_page_tree() {
@@ -109,13 +113,43 @@ mod tests {
         let mut doc = PdfDocument::open(file.path()).unwrap();
 
         // Mock the XREF table and Trailer
-        doc.xref_table.entries.insert(1, XrefEntry::InUse { byte_offset: 9, generation_number: 0 });
-        doc.xref_table.entries.insert(2, XrefEntry::InUse { byte_offset: 58, generation_number: 0 });
-        doc.xref_table.entries.insert(3, XrefEntry::InUse { byte_offset: 114, generation_number: 0 });
-        doc.xref_table.entries.insert(4, XrefEntry::InUse { byte_offset: 147, generation_number: 0 });
+        doc.xref_table.entries.insert(
+            1,
+            XrefEntry::InUse {
+                byte_offset: 9,
+                generation_number: 0,
+            },
+        );
+        doc.xref_table.entries.insert(
+            2,
+            XrefEntry::InUse {
+                byte_offset: 58,
+                generation_number: 0,
+            },
+        );
+        doc.xref_table.entries.insert(
+            3,
+            XrefEntry::InUse {
+                byte_offset: 114,
+                generation_number: 0,
+            },
+        );
+        doc.xref_table.entries.insert(
+            4,
+            XrefEntry::InUse {
+                byte_offset: 147,
+                generation_number: 0,
+            },
+        );
 
         let mut trailer = crate::object::PdfDictionary::new();
-        trailer.insert("Root", PdfObject::Reference(ObjectId { object_number: 1, generation_number: 0 }));
+        trailer.insert(
+            "Root",
+            PdfObject::Reference(ObjectId {
+                object_number: 1,
+                generation_number: 0,
+            }),
+        );
         doc.xref_table.trailer_dict = Some(trailer);
 
         let pages = DocumentCatalog::get_all_pages(&mut doc).unwrap();

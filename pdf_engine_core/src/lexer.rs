@@ -84,7 +84,10 @@ impl<'a> Lexer<'a> {
                     }
                     Ok(kw)
                 } else {
-                    Err(PdfError::InvalidSyntax(format!("Unexpected character: {}", c as char)))
+                    Err(PdfError::InvalidSyntax(format!(
+                        "Unexpected character: {}",
+                        c as char
+                    )))
                 }
             }
         }
@@ -141,7 +144,10 @@ impl<'a> Lexer<'a> {
                 self.pos += 1;
             } else if c == b'%' {
                 self.pos += 1;
-                while self.pos < self.data.len() && self.data[self.pos] != b'\n' && self.data[self.pos] != b'\r' {
+                while self.pos < self.data.len()
+                    && self.data[self.pos] != b'\n'
+                    && self.data[self.pos] != b'\r'
+                {
                     self.pos += 1;
                 }
             } else {
@@ -244,7 +250,16 @@ fn is_whitespace(c: u8) -> bool {
 
 #[inline]
 fn is_delimiter(c: u8) -> bool {
-    c == b'(' || c == b')' || c == b'<' || c == b'>' || c == b'[' || c == b']' || c == b'{' || c == b'}' || c == b'/' || c == b'%'
+    c == b'('
+        || c == b')'
+        || c == b'<'
+        || c == b'>'
+        || c == b'['
+        || c == b']'
+        || c == b'{'
+        || c == b'}'
+        || c == b'/'
+        || c == b'%'
 }
 
 #[inline]
@@ -262,10 +277,22 @@ mod tests {
         let mut lexer = Lexer::new(data);
 
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::DictStart));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Name("Type".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Name("Page".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Name("Count".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Number("3".into())));
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Name("Type".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Name("Page".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Name("Count".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Number("3".into()))
+        );
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::DictEnd));
         assert_eq!(lexer.next_token().unwrap(), None);
     }
@@ -275,8 +302,14 @@ mod tests {
         let data = b"(Hello World) <48656C6C6F>";
         let mut lexer = Lexer::new(data);
 
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::StringLiteral(b"Hello World".to_vec())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::HexString(b"48656C6C6F".to_vec())));
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::StringLiteral(b"Hello World".to_vec()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::HexString(b"48656C6C6F".to_vec()))
+        );
     }
 
     #[test]
@@ -285,20 +318,44 @@ mod tests {
         let mut lexer = Lexer::new(data);
 
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::ArrayStart));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Number("1".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Number("0".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("R".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("true".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("false".into())));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("null".into())));
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Number("1".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Number("0".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Keyword("R".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Keyword("true".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Keyword("false".into()))
+        );
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Keyword("null".into()))
+        );
         assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::ArrayEnd));
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::Keyword("obj".into())));
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::Keyword("obj".into()))
+        );
     }
 
     #[test]
     fn test_lex_stream() {
         let data = b"stream\nRAW_BINARY_DATA\nendstream";
         let mut lexer = Lexer::new(data);
-        assert_eq!(lexer.next_token().unwrap(), Some(PdfToken::StreamData(b"RAW_BINARY_DATA".to_vec())));
+        assert_eq!(
+            lexer.next_token().unwrap(),
+            Some(PdfToken::StreamData(b"RAW_BINARY_DATA".to_vec()))
+        );
     }
 }

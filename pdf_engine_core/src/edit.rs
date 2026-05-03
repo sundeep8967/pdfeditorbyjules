@@ -1,6 +1,5 @@
-
-use crate::object::PdfObject;
 use crate::content::ContentOperation;
+use crate::object::PdfObject;
 
 /// Re-serializes a list of ContentOperations back into raw PDF stream bytes.
 pub fn serialize_content_operations(operations: &[ContentOperation]) -> Vec<u8> {
@@ -69,7 +68,9 @@ pub fn serialize_object(obj: &PdfObject) -> Vec<u8> {
             buf.extend_from_slice(b">>");
         }
         PdfObject::Reference(id) => {
-            buf.extend_from_slice(format!("{} {} R", id.object_number, id.generation_number).as_bytes());
+            buf.extend_from_slice(
+                format!("{} {} R", id.object_number, id.generation_number).as_bytes(),
+            );
         }
         PdfObject::Stream(s) => {
             buf.extend_from_slice(&serialize_object(&PdfObject::Dictionary(s.dict.clone())));
@@ -83,7 +84,11 @@ pub fn serialize_object(obj: &PdfObject) -> Vec<u8> {
 
 /// Helper method to find and replace text in a stream of content operations.
 /// This is a naive MVP approach to text editing.
-pub fn replace_text_in_operations(ops: &mut [ContentOperation], target: &str, replacement: &str) -> usize {
+pub fn replace_text_in_operations(
+    ops: &mut [ContentOperation],
+    target: &str,
+    replacement: &str,
+) -> usize {
     let mut replacements_made = 0;
     let target_bytes = target.as_bytes();
 
@@ -121,8 +126,14 @@ mod tests {
     #[test]
     fn test_serialize_objects() {
         assert_eq!(serialize_object(&PdfObject::Integer(42)), b"42");
-        assert_eq!(serialize_object(&PdfObject::Name("Font1".into())), b"/Font1");
-        assert_eq!(serialize_object(&PdfObject::String(b"Hello (World)".to_vec())), b"(Hello \\(World\\))");
+        assert_eq!(
+            serialize_object(&PdfObject::Name("Font1".into())),
+            b"/Font1"
+        );
+        assert_eq!(
+            serialize_object(&PdfObject::String(b"Hello (World)".to_vec())),
+            b"(Hello \\(World\\))"
+        );
     }
 
     #[test]
@@ -135,7 +146,7 @@ mod tests {
             ContentOperation {
                 operator: "Tj".into(),
                 operands: vec![PdfObject::String(b"Hello".to_vec())],
-            }
+            },
         ];
 
         let count = replace_text_in_operations(&mut ops, "Hello", "Goodbye");

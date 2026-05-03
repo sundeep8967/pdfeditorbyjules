@@ -34,10 +34,11 @@ impl PdfDocument {
                 let version_start = i + signature.len();
                 let mut version_end = version_start;
 
-                while version_end < bytes_read &&
-                      buffer[version_end] != b'\r' &&
-                      buffer[version_end] != b'\n' &&
-                      buffer[version_end] != b' ' {
+                while version_end < bytes_read
+                    && buffer[version_end] != b'\r'
+                    && buffer[version_end] != b'\n'
+                    && buffer[version_end] != b' '
+                {
                     version_end += 1;
                 }
 
@@ -64,12 +65,17 @@ impl PdfDocument {
     }
 
     pub fn get_raw_object_bytes(&mut self, id: ObjectId) -> Result<Vec<u8>, PdfError> {
-        let entry = self.xref_table.entries.get(&id.object_number)
+        let entry = self
+            .xref_table
+            .entries
+            .get(&id.object_number)
             .ok_or(PdfError::ObjectNotFound(id.object_number))?;
 
         let offset = match entry {
             XrefEntry::Free { .. } => return Err(PdfError::ObjectIsFree(id.object_number)),
-            XrefEntry::Compressed { .. } => return Err(PdfError::ObjectRequiresDecompression(id.object_number)),
+            XrefEntry::Compressed { .. } => {
+                return Err(PdfError::ObjectRequiresDecompression(id.object_number))
+            }
             XrefEntry::InUse { byte_offset, .. } => *byte_offset,
         };
 
@@ -109,7 +115,9 @@ impl PdfDocument {
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 #[cfg(test)]
@@ -130,7 +138,8 @@ mod tests {
     #[test]
     fn test_valid_pdf_signature_offset() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"garbage bytes \r\n%PDF-1.7\n%binary data\n").unwrap();
+        file.write_all(b"garbage bytes \r\n%PDF-1.7\n%binary data\n")
+            .unwrap();
 
         let doc = PdfDocument::open(file.path()).unwrap();
         assert_eq!(doc.version, "1.7");
@@ -139,7 +148,8 @@ mod tests {
     #[test]
     fn test_invalid_pdf_signature() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"PK\x03\x04This is a zip file, not a PDF").unwrap();
+        file.write_all(b"PK\x03\x04This is a zip file, not a PDF")
+            .unwrap();
 
         let result = PdfDocument::open(file.path());
         assert!(matches!(result, Err(PdfError::InvalidFileSignature)));
@@ -162,9 +172,18 @@ mod tests {
 
         let mut doc = PdfDocument::open(file.path()).unwrap();
 
-        doc.xref_table.entries.insert(10, XrefEntry::InUse { byte_offset: 17, generation_number: 0 });
+        doc.xref_table.entries.insert(
+            10,
+            XrefEntry::InUse {
+                byte_offset: 17,
+                generation_number: 0,
+            },
+        );
 
-        let obj_id = ObjectId { object_number: 10, generation_number: 0 };
+        let obj_id = ObjectId {
+            object_number: 10,
+            generation_number: 0,
+        };
         let bytes = doc.get_raw_object_bytes(obj_id).unwrap();
 
         assert_eq!(bytes, b"10 0 obj\n<< /Type /Page >>\nendobj");

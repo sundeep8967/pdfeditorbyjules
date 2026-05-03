@@ -4,12 +4,8 @@ use tiny_skia::Color;
 /// Converts a PDF ColorSpace into a tiny-skia Color (RGBA).
 pub fn convert_color(cs: &ColorSpace) -> Color {
     match cs {
-        ColorSpace::RGB(r, g, b) => {
-            Color::from_rgba(*r, *g, *b, 1.0).unwrap_or(Color::BLACK)
-        }
-        ColorSpace::Gray(g) => {
-            Color::from_rgba(*g, *g, *g, 1.0).unwrap_or(Color::BLACK)
-        }
+        ColorSpace::RGB(r, g, b) => Color::from_rgba(*r, *g, *b, 1.0).unwrap_or(Color::BLACK),
+        ColorSpace::Gray(g) => Color::from_rgba(*g, *g, *g, 1.0).unwrap_or(Color::BLACK),
         ColorSpace::CMYK(c, m, y, k) => {
             // Standard naive CMYK to RGB conversion.
             // In an Adobe-level engine, this would use ICC profiles.

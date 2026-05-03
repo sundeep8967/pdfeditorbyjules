@@ -1,6 +1,6 @@
-use std::collections::HashMap;
 use crate::error::PdfError;
 use crate::lexer::{Lexer, PdfToken};
+use std::collections::HashMap;
 
 /// A Character Map (CMap) that translates raw PDF byte codes into actual Unicode strings.
 #[derive(Debug, Default)]
@@ -114,7 +114,8 @@ fn parse_bfrange(lexer: &mut Lexer, cmap: &mut CMap) -> Result<(), PdfError> {
                             // Sequential range mapping
                             let mut current_dst = hex_bytes_to_u32(&dst_bytes);
                             for code in start_code..=end_code {
-                                cmap.mapping.insert(code, u32_to_unicode_string(current_dst));
+                                cmap.mapping
+                                    .insert(code, u32_to_unicode_string(current_dst));
                                 current_dst += 1;
                             }
                         }
@@ -125,7 +126,10 @@ fn parse_bfrange(lexer: &mut Lexer, cmap: &mut CMap) -> Result<(), PdfError> {
                                 match arr_tok {
                                     PdfToken::ArrayEnd => break,
                                     PdfToken::HexString(dst_bytes) => {
-                                        cmap.mapping.insert(current_code, hex_bytes_to_unicode_string(&dst_bytes));
+                                        cmap.mapping.insert(
+                                            current_code,
+                                            hex_bytes_to_unicode_string(&dst_bytes),
+                                        );
                                         current_code += 1;
                                     }
                                     _ => {}
@@ -258,8 +262,8 @@ pub struct TrueTypeFont<'a> {
 impl<'a> TrueTypeFont<'a> {
     /// Loads a TrueType font from a raw, decompressed byte stream extracted from a PDF `/FontFile2`.
     pub fn parse(font_data: &'a [u8]) -> Result<Self, PdfError> {
-        let face = Face::parse(font_data, 0)
-            .map_err(|e| PdfError::InvalidTrueTypeFont(e.to_string()))?;
+        let face =
+            Face::parse(font_data, 0).map_err(|e| PdfError::InvalidTrueTypeFont(e.to_string()))?;
 
         Ok(Self { face })
     }

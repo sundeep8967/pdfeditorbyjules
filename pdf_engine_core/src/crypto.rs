@@ -1,5 +1,4 @@
 use crate::error::PdfError;
-use crate::object::{PdfDictionary, PdfObject};
 
 /// Represents the Security Handler algorithm.
 #[derive(Debug, Clone, PartialEq)]
@@ -16,7 +15,10 @@ pub struct EncryptionHandler {
 
 impl EncryptionHandler {
     pub fn new(algorithm: EncryptionAlgorithm, encryption_key: Vec<u8>) -> Self {
-        Self { algorithm, encryption_key }
+        Self {
+            algorithm,
+            encryption_key,
+        }
     }
 
     pub fn compute_object_key(&self, obj_num: u32, gen_num: u16) -> Vec<u8> {
@@ -24,7 +26,7 @@ impl EncryptionHandler {
             return self.encryption_key.clone();
         }
 
-        use md5::{Md5, Digest};
+        use md5::{Digest, Md5};
         let mut hasher = Md5::new();
         hasher.update(&self.encryption_key);
 
@@ -47,7 +49,12 @@ impl EncryptionHandler {
         result[0..key_len].to_vec()
     }
 
-    pub fn decrypt_stream(&self, data: &[u8], _obj_num: u32, _gen_num: u16) -> Result<Vec<u8>, PdfError> {
+    pub fn decrypt_stream(
+        &self,
+        data: &[u8],
+        _obj_num: u32,
+        _gen_num: u16,
+    ) -> Result<Vec<u8>, PdfError> {
         if data.is_empty() {
             return Ok(Vec::new());
         }
@@ -56,9 +63,15 @@ impl EncryptionHandler {
         // we isolate the mathematical decryption loop as a scaffolded boundary for future phases.
         // The key derivation algorithm above (MD5 salting) is the most critical/custom PDF logic.
         match self.algorithm {
-            EncryptionAlgorithm::Rc4 => Err(PdfError::FilterDecodeError("RC4 decoding requires further trait isolation".into())),
-            EncryptionAlgorithm::Aes128 => Err(PdfError::FilterDecodeError("AES128 decoding requires further trait isolation".into())),
-            EncryptionAlgorithm::Aes256 => Err(PdfError::FilterDecodeError("AES256 decoding requires further trait isolation".into())),
+            EncryptionAlgorithm::Rc4 => Err(PdfError::FilterDecodeError(
+                "RC4 decoding requires further trait isolation".into(),
+            )),
+            EncryptionAlgorithm::Aes128 => Err(PdfError::FilterDecodeError(
+                "AES128 decoding requires further trait isolation".into(),
+            )),
+            EncryptionAlgorithm::Aes256 => Err(PdfError::FilterDecodeError(
+                "AES256 decoding requires further trait isolation".into(),
+            )),
         }
     }
 }

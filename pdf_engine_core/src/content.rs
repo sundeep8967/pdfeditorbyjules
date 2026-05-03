@@ -1,9 +1,9 @@
-use crate::error::PdfError;
-use crate::object::{ObjectId, PdfObject};
+use crate::ast_parser::Parser as AstParser;
 use crate::document::PdfDocument;
+use crate::error::PdfError;
 use crate::filter::decode_stream;
 use crate::lexer::{Lexer, PdfToken};
-use crate::ast_parser::Parser as AstParser;
+use crate::object::{ObjectId, PdfObject};
 
 /// Represents a single Graphics Operator in a Content Stream.
 #[derive(Debug, PartialEq)]
@@ -12,7 +12,10 @@ pub struct ContentOperation {
     pub operands: Vec<PdfObject>,
 }
 
-pub fn parse_page_contents(doc: &mut PdfDocument, page_id: ObjectId) -> Result<Vec<ContentOperation>, PdfError> {
+pub fn parse_page_contents(
+    doc: &mut PdfDocument,
+    page_id: ObjectId,
+) -> Result<Vec<ContentOperation>, PdfError> {
     let raw_bytes = doc.get_raw_object_bytes(page_id)?;
     let mut page_parser = AstParser::new(Lexer::new(&raw_bytes))?;
     let page_obj = page_parser.parse_object()?;
@@ -111,7 +114,9 @@ pub fn parse_content_stream(data: &[u8]) -> Result<Vec<ContentOperation>, PdfErr
                 current_operands.push(PdfObject::Array(arr));
             }
             PdfToken::DictStart => {
-                return Err(PdfError::InvalidSyntax("Inline Image Dictionaries (EI) not yet supported".into()));
+                return Err(PdfError::InvalidSyntax(
+                    "Inline Image Dictionaries (EI) not yet supported".into(),
+                ));
             }
             _ => return Err(PdfError::UnexpectedToken),
         }
@@ -143,6 +148,9 @@ mod tests {
 
         assert_eq!(ops[2].operator, "Tj");
         assert_eq!(ops[2].operands.len(), 1);
-        assert_eq!(ops[2].operands[0], PdfObject::String(b"Hello World".to_vec()));
+        assert_eq!(
+            ops[2].operands[0],
+            PdfObject::String(b"Hello World".to_vec())
+        );
     }
 }

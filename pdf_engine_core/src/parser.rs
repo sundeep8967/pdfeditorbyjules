@@ -1,12 +1,12 @@
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 
+use crate::ast_parser::Parser as AstParser;
 use crate::error::PdfError;
+use crate::lexer::Lexer;
+use crate::object::PdfObject;
 use crate::xref::{XrefEntry, XrefTable};
 use std::io::BufRead;
-use crate::lexer::Lexer;
-use crate::ast_parser::Parser as AstParser;
-use crate::object::PdfObject;
 
 pub fn find_startxref(file: &mut File) -> Result<u64, PdfError> {
     let file_len = file.metadata()?.len();
@@ -50,7 +50,9 @@ pub fn find_startxref(file: &mut File) -> Result<u64, PdfError> {
     let offset_str = std::str::from_utf8(&after_marker[num_start..num_end])
         .map_err(|_| PdfError::InvalidStartXrefOffset)?;
 
-    let offset: u64 = offset_str.parse().map_err(|_| PdfError::InvalidStartXrefOffset)?;
+    let offset: u64 = offset_str
+        .parse()
+        .map_err(|_| PdfError::InvalidStartXrefOffset)?;
 
     Ok(offset)
 }
@@ -107,18 +109,28 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
 
         for i in 0..count {
             reader.read_line(&mut line)?;
-            let entry_parts: Vec<&str> = line.trim().split_whitespace().collect();
+            let entry_parts: Vec<&str> = line.split_whitespace().collect();
             if entry_parts.len() < 3 {
                 return Err(PdfError::InvalidXrefFormat);
             }
 
-            let num1: u64 = entry_parts[0].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
-            let gen: u16 = entry_parts[1].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
+            let num1: u64 = entry_parts[0]
+                .parse()
+                .map_err(|_| PdfError::InvalidXrefFormat)?;
+            let gen: u16 = entry_parts[1]
+                .parse()
+                .map_err(|_| PdfError::InvalidXrefFormat)?;
             let status = entry_parts[2];
 
             let entry = match status {
-                "n" => XrefEntry::InUse { byte_offset: num1, generation_number: gen },
-                "f" => XrefEntry::Free { next_free_object: num1 as u32, generation_number: gen },
+                "n" => XrefEntry::InUse {
+                    byte_offset: num1,
+                    generation_number: gen,
+                },
+                "f" => XrefEntry::Free {
+                    next_free_object: num1 as u32,
+                    generation_number: gen,
+                },
                 _ => return Err(PdfError::InvalidXrefFormat),
             };
 
@@ -144,7 +156,8 @@ mod tests {
     #[test]
     fn test_find_startxref_standard() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"dummy data\nstartxref\n12345\n%%EOF\n").unwrap();
+        file.write_all(b"dummy data\nstartxref\n12345\n%%EOF\n")
+            .unwrap();
 
         let mut f = file.reopen().unwrap();
         let offset = find_startxref(&mut f).unwrap();
@@ -154,7 +167,8 @@ mod tests {
     #[test]
     fn test_find_startxref_crlf() {
         let mut file = NamedTempFile::new().unwrap();
-        file.write_all(b"dummy data\r\nstartxref\r\n6789\r\n%%EOF\r\n").unwrap();
+        file.write_all(b"dummy data\r\nstartxref\r\n6789\r\n%%EOF\r\n")
+            .unwrap();
 
         let mut f = file.reopen().unwrap();
         let offset = find_startxref(&mut f).unwrap();
@@ -175,9 +189,9 @@ mod tests {
 #[cfg(test)]
 mod xref_tests {
     use super::*;
-    use tempfile::NamedTempFile;
-    use std::io::Write;
     use crate::object::ObjectId;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_parse_xref_table_with_trailer() {
@@ -193,7 +207,13 @@ mod xref_tests {
         // Check Trailer
         let trailer = table.trailer().expect("Trailer should be parsed");
         assert_eq!(trailer.get("Size").unwrap(), &PdfObject::Integer(2));
-        assert_eq!(trailer.get("Root").unwrap(), &PdfObject::Reference(ObjectId { object_number: 1, generation_number: 0}));
+        assert_eq!(
+            trailer.get("Root").unwrap(),
+            &PdfObject::Reference(ObjectId {
+                object_number: 1,
+                generation_number: 0
+            })
+        );
     }
 }
 
@@ -215,9 +235,9 @@ pub fn rebuild_xref_from_linear_scan(file: &mut File) -> Result<XrefTable, PdfEr
 
         let mut found_idx = None;
         for i in pos..buffer.len().saturating_sub(obj_marker.len()) {
-            if &buffer[i..i+3] == obj_marker {
+            if &buffer[i..i + 3] == obj_marker {
                 // Must be preceded by a space
-                if i > 0 && is_whitespace(buffer[i-1]) {
+                if i > 0 && is_whitespace(buffer[i - 1]) {
                     found_idx = Some(i);
                     break;
                 }
@@ -226,12 +246,16 @@ pub fn rebuild_xref_from_linear_scan(file: &mut File) -> Result<XrefTable, PdfEr
 
         if let Some(idx) = found_idx {
             // Traverse backwards from idx to parse the `generation` and `object` numbers
-            if let Some((obj_num, gen_num, start_offset)) = parse_obj_header_backwards(&buffer, idx) {
+            if let Some((obj_num, gen_num, start_offset)) = parse_obj_header_backwards(&buffer, idx)
+            {
                 // We found a valid object! Insert it.
-                table.entries.insert(obj_num, XrefEntry::InUse {
-                    byte_offset: start_offset as u64,
-                    generation_number: gen_num
-                });
+                table.entries.insert(
+                    obj_num,
+                    XrefEntry::InUse {
+                        byte_offset: start_offset as u64,
+                        generation_number: gen_num,
+                    },
+                );
             }
             pos = idx + 3; // move past 'obj'
         } else {
@@ -277,13 +301,15 @@ fn parse_obj_header_backwards(buffer: &[u8], obj_idx: usize) -> Option<(u32, u16
     }
 
     // Parse generation number
-    let mut gen_end = p + 1;
+    let gen_end = p + 1;
     while p > 0 && buffer[p].is_ascii_digit() {
         p -= 1;
     }
     let gen_start = p + 1;
 
-    if gen_start == gen_end { return None; }
+    if gen_start == gen_end {
+        return None;
+    }
     let gen_str = std::str::from_utf8(&buffer[gen_start..gen_end]).ok()?;
     let gen_num: u16 = gen_str.parse().ok()?;
 
@@ -293,13 +319,15 @@ fn parse_obj_header_backwards(buffer: &[u8], obj_idx: usize) -> Option<(u32, u16
     }
 
     // Parse object number
-    let mut obj_end = p + 1;
+    let obj_end = p + 1;
     while p > 0 && buffer[p].is_ascii_digit() {
         p -= 1;
     }
     let obj_start = p + 1;
 
-    if obj_start == obj_end { return None; }
+    if obj_start == obj_end {
+        return None;
+    }
     let obj_str = std::str::from_utf8(&buffer[obj_start..obj_end]).ok()?;
     let obj_num: u32 = obj_str.parse().ok()?;
 
@@ -308,15 +336,17 @@ fn parse_obj_header_backwards(buffer: &[u8], obj_idx: usize) -> Option<(u32, u16
 }
 
 fn find_last_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).rposition(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .rposition(|window| window == needle)
 }
 
 #[cfg(test)]
 mod recovery_tests {
     use super::*;
-    use tempfile::NamedTempFile;
-    use std::io::Write;
     use crate::object::ObjectId;
+    use std::io::Write;
+    use tempfile::NamedTempFile;
 
     #[test]
     fn test_rebuild_xref_from_linear_scan() {

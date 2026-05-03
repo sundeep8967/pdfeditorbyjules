@@ -1,6 +1,6 @@
+use crate::content::ContentOperation;
 use crate::error::PdfError;
 use crate::object::PdfObject;
-use crate::content::ContentOperation;
 
 /// A 3x3 transformation matrix used for coordinate and text transformations.
 /// PDF matrices are defined by 6 numbers: [a b c d e f].
@@ -20,7 +20,14 @@ pub struct TransformMatrix {
 
 impl Default for TransformMatrix {
     fn default() -> Self {
-        Self { a: 1.0, b: 0.0, c: 0.0, d: 1.0, e: 0.0, f: 0.0 }
+        Self {
+            a: 1.0,
+            b: 0.0,
+            c: 0.0,
+            d: 1.0,
+            e: 0.0,
+            f: 0.0,
+        }
     }
 }
 
@@ -97,6 +104,12 @@ impl Default for GraphicsState {
 pub struct GraphicsStateProcessor {
     pub current_state: GraphicsState,
     state_stack: Vec<GraphicsState>,
+}
+
+impl Default for GraphicsStateProcessor {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl GraphicsStateProcessor {
@@ -256,7 +269,9 @@ fn extract_name(operands: &[PdfObject], idx: usize) -> Result<String, PdfError> 
 
 fn extract_matrix_operands(operands: &[PdfObject]) -> Result<TransformMatrix, PdfError> {
     if operands.len() != 6 {
-        return Err(PdfError::InvalidGraphicOperator("Matrix requires 6 operands".into()));
+        return Err(PdfError::InvalidGraphicOperator(
+            "Matrix requires 6 operands".into(),
+        ));
     }
     Ok(TransformMatrix::new(
         extract_f32(operands, 0)?,
@@ -277,18 +292,25 @@ mod tests {
         let mut proc = GraphicsStateProcessor::new();
 
         proc.process_op(&ContentOperation {
-            operator: "w".into(), // line width
+            operator: "w".into(),                 // line width
             operands: vec![PdfObject::Real(5.0)], // Actually provide the operand
-        }).unwrap();
+        })
+        .unwrap();
 
-
-
-        proc.process_op(&ContentOperation { operator: "q".into(), operands: vec![] }).unwrap();
+        proc.process_op(&ContentOperation {
+            operator: "q".into(),
+            operands: vec![],
+        })
+        .unwrap();
         proc.current_state.line_width = 10.0;
 
         assert_eq!(proc.current_state.line_width, 10.0);
 
-        proc.process_op(&ContentOperation { operator: "Q".into(), operands: vec![] }).unwrap();
+        proc.process_op(&ContentOperation {
+            operator: "Q".into(),
+            operands: vec![],
+        })
+        .unwrap();
         assert_eq!(proc.current_state.line_width, 5.0);
     }
 
@@ -299,10 +321,13 @@ mod tests {
         let op = ContentOperation {
             operator: "cm".into(),
             operands: vec![
-                PdfObject::Integer(2), PdfObject::Integer(0),
-                PdfObject::Integer(0), PdfObject::Integer(2),
-                PdfObject::Integer(10), PdfObject::Integer(10),
-            ]
+                PdfObject::Integer(2),
+                PdfObject::Integer(0),
+                PdfObject::Integer(0),
+                PdfObject::Integer(2),
+                PdfObject::Integer(10),
+                PdfObject::Integer(10),
+            ],
         };
 
         proc.process_op(&op).unwrap();
@@ -320,7 +345,10 @@ pub struct ExtractedText {
 
 impl GraphicsStateProcessor {
     /// Extracts text elements along with their calculated transformation matrices from a content stream.
-    pub fn extract_text(&mut self, operations: &[ContentOperation]) -> Result<Vec<ExtractedText>, PdfError> {
+    pub fn extract_text(
+        &mut self,
+        operations: &[ContentOperation],
+    ) -> Result<Vec<ExtractedText>, PdfError> {
         let mut extracted = Vec::new();
 
         for op in operations {
@@ -382,7 +410,7 @@ mod text_tests {
             ContentOperation {
                 operator: "Tj".into(),
                 operands: vec![PdfObject::String(b"Hello".to_vec())],
-            }
+            },
         ];
 
         let extracted = proc.extract_text(&ops).unwrap();
@@ -394,16 +422,14 @@ mod text_tests {
     #[test]
     fn test_extract_text_tj_array() {
         let mut proc = GraphicsStateProcessor::new();
-        let ops = vec![
-            ContentOperation {
-                operator: "TJ".into(),
-                operands: vec![PdfObject::Array(vec![
-                    PdfObject::String(b"W".to_vec()),
-                    PdfObject::Integer(120),
-                    PdfObject::String(b"orld".to_vec()),
-                ])],
-            }
-        ];
+        let ops = vec![ContentOperation {
+            operator: "TJ".into(),
+            operands: vec![PdfObject::Array(vec![
+                PdfObject::String(b"W".to_vec()),
+                PdfObject::Integer(120),
+                PdfObject::String(b"orld".to_vec()),
+            ])],
+        }];
 
         let extracted = proc.extract_text(&ops).unwrap();
         assert_eq!(extracted.len(), 1);

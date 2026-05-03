@@ -1,8 +1,8 @@
-use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Stroke, Transform};
-use crate::error::PdfError;
 use crate::content::ContentOperation;
+use crate::error::PdfError;
 use crate::graphics::GraphicsStateProcessor;
 use crate::object::PdfObject;
+use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Stroke, Transform};
 
 /// Renders a set of PDF ContentOperations onto a rasterized pixel buffer (RGBA).
 pub fn render_page_to_pixels(
@@ -60,12 +60,21 @@ pub fn render_page_to_pixels(
                     stroke.width = proc.current_state.line_width;
 
                     let mut paint = Paint::default();
-                    paint.set_color(crate::color::convert_color(&proc.current_state.stroke_color));
+                    paint.set_color(crate::color::convert_color(
+                        &proc.current_state.stroke_color,
+                    ));
 
                     let ctm = &proc.current_state.ctm;
-                    let skia_transform = Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+                    let skia_transform =
+                        Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
 
-                    pixmap.stroke_path(&path, &paint, &stroke, skia_transform.post_concat(base_transform), None);
+                    pixmap.stroke_path(
+                        &path,
+                        &paint,
+                        &stroke,
+                        skia_transform.post_concat(base_transform),
+                        None,
+                    );
                 }
                 // PDF spec: drawing operators consume the current path
                 path_builder = PathBuilder::new();
@@ -77,9 +86,16 @@ pub fn render_page_to_pixels(
                     paint.set_color(crate::color::convert_color(&proc.current_state.fill_color));
 
                     let ctm = &proc.current_state.ctm;
-                    let skia_transform = Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+                    let skia_transform =
+                        Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
 
-                    pixmap.fill_path(&path, &paint, FillRule::Winding, skia_transform.post_concat(base_transform), None);
+                    pixmap.fill_path(
+                        &path,
+                        &paint,
+                        FillRule::Winding,
+                        skia_transform.post_concat(base_transform),
+                        None,
+                    );
                 }
                 path_builder = PathBuilder::new();
             }
@@ -114,12 +130,30 @@ mod tests {
     fn test_render_simple_path() {
         // Draw a 100x100 square starting at (50, 50)
         let ops = vec![
-            ContentOperation { operator: "m".into(), operands: vec![PdfObject::Integer(50), PdfObject::Integer(50)] },
-            ContentOperation { operator: "l".into(), operands: vec![PdfObject::Integer(150), PdfObject::Integer(50)] },
-            ContentOperation { operator: "l".into(), operands: vec![PdfObject::Integer(150), PdfObject::Integer(150)] },
-            ContentOperation { operator: "l".into(), operands: vec![PdfObject::Integer(50), PdfObject::Integer(150)] },
-            ContentOperation { operator: "h".into(), operands: vec![] }, // close path
-            ContentOperation { operator: "f".into(), operands: vec![] }, // fill
+            ContentOperation {
+                operator: "m".into(),
+                operands: vec![PdfObject::Integer(50), PdfObject::Integer(50)],
+            },
+            ContentOperation {
+                operator: "l".into(),
+                operands: vec![PdfObject::Integer(150), PdfObject::Integer(50)],
+            },
+            ContentOperation {
+                operator: "l".into(),
+                operands: vec![PdfObject::Integer(150), PdfObject::Integer(150)],
+            },
+            ContentOperation {
+                operator: "l".into(),
+                operands: vec![PdfObject::Integer(50), PdfObject::Integer(150)],
+            },
+            ContentOperation {
+                operator: "h".into(),
+                operands: vec![],
+            }, // close path
+            ContentOperation {
+                operator: "f".into(),
+                operands: vec![],
+            }, // fill
         ];
 
         let width = 200;
@@ -136,13 +170,13 @@ mod tests {
         let idx = ((y * width + x) * 4) as usize;
 
         // It should be filled with black (0, 0, 0, 255)
-        assert_eq!(pixels[idx], 0);     // R
-        assert_eq!(pixels[idx+1], 0);   // G
-        assert_eq!(pixels[idx+2], 0);   // B
-        assert_eq!(pixels[idx+3], 255); // A
+        assert_eq!(pixels[idx], 0); // R
+        assert_eq!(pixels[idx + 1], 0); // G
+        assert_eq!(pixels[idx + 2], 0); // B
+        assert_eq!(pixels[idx + 3], 255); // A
 
         // Check a pixel outside the square (e.g. 10, 10)
         let out_idx = ((10 * width + 10) * 4) as usize;
-        assert_eq!(pixels[out_idx+3], 0); // Transparent background
+        assert_eq!(pixels[out_idx + 3], 0); // Transparent background
     }
 }

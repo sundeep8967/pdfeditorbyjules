@@ -2,15 +2,30 @@ use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum XrefEntry {
-    Free { next_free_object: u32, generation_number: u16 },
-    InUse { byte_offset: u64, generation_number: u16 },
-    Compressed { object_stream_num: u32, index_in_stream: u16 },
+    Free {
+        next_free_object: u32,
+        generation_number: u16,
+    },
+    InUse {
+        byte_offset: u64,
+        generation_number: u16,
+    },
+    Compressed {
+        object_stream_num: u32,
+        index_in_stream: u16,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub struct XrefTable {
     pub entries: HashMap<u32, XrefEntry>,
     pub trailer_dict: Option<PdfDictionary>,
+}
+
+impl Default for XrefTable {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl XrefTable {

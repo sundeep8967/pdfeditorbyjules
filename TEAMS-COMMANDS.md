@@ -7,13 +7,16 @@ To scale development autonomously, spin up a new LLM agent instance and copy-pas
 
 ### 1. Core Engine Team (Rust)
 **Role:** Font & Typography Expert
-> "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Core Engine Team**. Your role is the **Font & Typography Expert**. Read `management/rfc/research/TTF-PARSING.md`. Your objective is to expand `src/font.rs` to extract TrueType glyph geometries using `ttf-parser` and pass them to the rendering engine."
+> "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Core Engine Team**. Your role is the **Font & Typography Expert**. Read `management/engineering/rfc/research/TTF-PARSING.md`. Your objective is to expand `src/font.rs` to extract TrueType glyph geometries using `ttf-parser` and pass them to the rendering engine."
 
 **Role:** Graphics & Rasterization Expert
 > "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Core Engine Team**. Your role is the **Graphics Expert**. Read `PROGRESS.md` (Phase 6). Your objective is to expand `src/render.rs` to handle clipping paths, gradients, and transparency using `tiny-skia`."
 
 **Role:** Security Expert
 > "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Core Engine Team**. Your role is the **Security Expert**. Your objective is to expand `src/crypto.rs` by implementing the `aes` and `rc4` decryption logic to unlock encrypted PDF streams."
+
+**Role:** CI/CD Build Engineer
+> "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Core Engine Team**. Your role is the **CI/CD Build Engineer**. Your objective is to create `.github/workflows/build.yml`. Write the GitHub Actions workflow to cross-compile the Rust library into an iOS `.xcframework` using `cargo-lipo` and an Android `.aar` via the NDK."
 
 ---
 
@@ -27,6 +30,9 @@ To scale development autonomously, spin up a new LLM agent instance and copy-pas
 **Role:** Web Developer (WASM)
 > "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Platform Bindings Team**. Your objective is to create `sdk_bindings/web/`. Configure `wasm-bindgen` to compile the core Rust engine into a WebAssembly module with TypeScript definitions."
 
+**Role:** Cloud/Backend Integration Engineer
+> "Read `AGENTS.md` and `management/teams/TEAM-STRUCTURE.md`. You are assigned to the **Platform Bindings Team**. Your objective is to create `sdk_bindings/node/`. Write the Node.js `ffi-napi` bindings to allow backend servers to use our Rust engine for headless PDF generation and editing."
+
 ---
 
 ### 3. Quality Assurance (QA) Team
@@ -35,6 +41,9 @@ To scale development autonomously, spin up a new LLM agent instance and copy-pas
 
 **Role:** Visual Regression Tester
 > "Read `AGENTS.md`. You are assigned to the **QA Team**. Your objective is to create `tests/automation/visual_regression.py`. This script must render our test PDFs using the SDK, take the output RGBA buffer, and perform a pixel-diff comparison against Adobe Acrobat's output."
+
+**Role:** Performance & Benchmarking Engineer
+> "Read `AGENTS.md`. You are assigned to the **QA Team**. Your objective is to create `tests/automation/benchmark.rs` using the `criterion` crate. Ensure that our Rust `render_page_to_pixels` function consistently executes in under 50ms for complex vector pages."
 
 ---
 
@@ -47,3 +56,6 @@ To scale development autonomously, spin up a new LLM agent instance and copy-pas
 ### 5. Demo App Team
 **Role:** iOS/Android UI Developer
 > "Read `AGENTS.md`. You are assigned to the **Demo App Team**. Do not write PDF logic. Create a new repository `demo_apps/android/`. Build a beautiful, modern Android PDF Viewer app in Jetpack Compose that imports and uses the `.aar` file produced by the Platform Bindings team."
+
+**Role:** Web UI Developer
+> "Read `AGENTS.md`. You are assigned to the **Demo App Team**. Do not write PDF logic. Create `demo_apps/web/`. Build a beautiful React/Next.js PDF Editor interface that imports the WASM package from the Platform Bindings team."

@@ -14,6 +14,12 @@ pub struct PdfDictionary {
     pub entries: HashMap<String, PdfObject>,
 }
 
+impl Default for PdfDictionary {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl PdfDictionary {
     pub fn new() -> Self {
         Self {
@@ -70,17 +76,17 @@ mod tests {
     fn test_pdf_dictionary() {
         let mut dict = PdfDictionary::new();
         dict.insert("Type", PdfObject::Name("Page".to_string()));
-        dict.insert("MediaBox", PdfObject::Array(vec![
-            PdfObject::Integer(0),
-            PdfObject::Integer(0),
-            PdfObject::Integer(612),
-            PdfObject::Integer(792),
-        ]));
-
-        assert_eq!(
-            dict.get("Type"),
-            Some(&PdfObject::Name("Page".to_string()))
+        dict.insert(
+            "MediaBox",
+            PdfObject::Array(vec![
+                PdfObject::Integer(0),
+                PdfObject::Integer(0),
+                PdfObject::Integer(612),
+                PdfObject::Integer(792),
+            ]),
         );
+
+        assert_eq!(dict.get("Type"), Some(&PdfObject::Name("Page".to_string())));
 
         if let Some(PdfObject::Array(arr)) = dict.get("MediaBox") {
             assert_eq!(arr.len(), 4);
