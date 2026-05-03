@@ -63,6 +63,8 @@ pub struct GraphicsState {
     pub line_width: f32,
     pub fill_color: ColorSpace,
     pub stroke_color: ColorSpace,
+    pub fill_alpha: f32,
+    pub stroke_alpha: f32,
 
     // Text state
     pub character_spacing: f32,
@@ -86,6 +88,8 @@ impl Default for GraphicsState {
             line_width: 1.0,
             fill_color: ColorSpace::default(),
             stroke_color: ColorSpace::default(),
+            fill_alpha: 1.0,
+            stroke_alpha: 1.0,
             character_spacing: 0.0,
             word_spacing: 0.0,
             horizontal_scaling: 100.0,
@@ -442,6 +446,12 @@ pub enum ColorSpace {
     RGB(f32, f32, f32),
     CMYK(f32, f32, f32, f32),
     Gray(f32),
+    LinearGradient {
+        start: (f32, f32),
+        end: (f32, f32),
+        start_color: (f32, f32, f32),
+        end_color: (f32, f32, f32),
+    },
 }
 
 impl Default for ColorSpace {

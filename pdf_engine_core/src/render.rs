@@ -1,8 +1,12 @@
 use crate::content::ContentOperation;
 use crate::error::PdfError;
+use crate::graphics::ColorSpace;
 use crate::graphics::GraphicsStateProcessor;
 use crate::object::PdfObject;
-use tiny_skia::{FillRule, Paint, PathBuilder, Pixmap, Stroke, Transform};
+use tiny_skia::{
+    Color, FillRule, GradientStop, LinearGradient, Mask, Paint, PathBuilder, Pixmap, Point,
+    SpreadMode, Stroke, Transform,
+};
 
 /// Renders a set of PDF ContentOperations onto a rasterized pixel buffer (RGBA).
 pub fn render_page_to_pixels(
@@ -21,7 +25,21 @@ pub fn render_page_to_pixels(
     let mut path_builder = PathBuilder::new();
     let mut proc = GraphicsStateProcessor::new();
 
+    // Clip mask state tracking
+    let mut current_clip: Option<tiny_skia::Mask> = None;
+    let mut clip_stack: Vec<Option<tiny_skia::Mask>> = Vec::new();
+    let mut pending_clip_rule: Option<FillRule> = None;
+
     for op in operations {
+        // Handle Save/Restore state for clipping stack before calling process_op
+        if op.operator == "q" {
+            clip_stack.push(current_clip.clone());
+        } else if op.operator == "Q" {
+            if let Some(saved_clip) = clip_stack.pop() {
+                current_clip = saved_clip;
+            }
+        }
+
         // Track the PDF graphics state (CTM, colors, etc.)
         proc.process_op(op)?;
 
@@ -53,54 +71,256 @@ pub fn render_page_to_pixels(
                 // ClosePath
                 path_builder.close();
             }
+            "W" => {
+                // Clip NonZero Winding Rule
+                pending_clip_rule = Some(FillRule::Winding);
+            }
+            "W*" => {
+                // Clip EvenOdd Rule
+                pending_clip_rule = Some(FillRule::EvenOdd);
+            }
+            "n" => {
+                // End path without filling or stroking (often used for clipping)
+                if let Some(rule) = pending_clip_rule.take() {
+                    if let Some(path) = path_builder.clone().finish() {
+                        let ctm = &proc.current_state.ctm;
+                        let skia_transform =
+                            Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+                        let final_transform = skia_transform.post_concat(base_transform);
+
+                        if let Some(transformed_path) = path.transform(final_transform) {
+                            if current_clip.is_none() {
+                                current_clip = Mask::new(width, height);
+                                if let Some(mask) = current_clip.as_mut() {
+                                    mask.fill_path(
+                                        &transformed_path,
+                                        rule,
+                                        false,
+                                        Transform::identity(),
+                                    );
+                                }
+                            } else if let Some(mask) = current_clip.as_mut() {
+                                mask.intersect_path(
+                                    &transformed_path,
+                                    rule,
+                                    false,
+                                    Transform::identity(),
+                                );
+                            }
+                        }
+                    }
+                }
+                path_builder = PathBuilder::new();
+            }
             "S" | "s" => {
                 // Stroke Path
+                let rule = pending_clip_rule.take();
+
                 if let Some(path) = path_builder.finish() {
+                    let ctm = &proc.current_state.ctm;
+                    let skia_transform =
+                        Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+                    let final_transform = skia_transform.post_concat(base_transform);
+
+                    if let Some(rule) = rule {
+                        if let Some(transformed_path) = path.clone().transform(final_transform) {
+                            if current_clip.is_none() {
+                                current_clip = tiny_skia::Mask::new(width, height);
+                                if let Some(mask) = current_clip.as_mut() {
+                                    mask.fill_path(
+                                        &transformed_path,
+                                        rule,
+                                        false,
+                                        Transform::identity(),
+                                    );
+                                }
+                            } else if let Some(mask) = current_clip.as_mut() {
+                                mask.intersect_path(
+                                    &transformed_path,
+                                    rule,
+                                    false,
+                                    Transform::identity(),
+                                );
+                            }
+                        }
+                    }
+
                     let mut stroke = Stroke::default();
                     stroke.width = proc.current_state.line_width;
 
                     let mut paint = Paint::default();
                     paint.set_color(crate::color::convert_color(
                         &proc.current_state.stroke_color,
+                        proc.current_state.stroke_alpha,
                     ));
 
-                    let ctm = &proc.current_state.ctm;
-                    let skia_transform =
-                        Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
-
-                    pixmap.stroke_path(
-                        &path,
-                        &paint,
-                        &stroke,
-                        skia_transform.post_concat(base_transform),
-                        None,
-                    );
+                    if let Some(mask) = current_clip.as_ref() {
+                        let mut temp_pixmap = Pixmap::new(width, height).unwrap();
+                        temp_pixmap.stroke_path(&path, &paint, &stroke, final_transform, None);
+                        temp_pixmap.apply_mask(mask);
+                        pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                    } else {
+                        pixmap.stroke_path(&path, &paint, &stroke, final_transform, None);
+                    }
                 }
                 // PDF spec: drawing operators consume the current path
                 path_builder = PathBuilder::new();
             }
             "f" | "F" => {
                 // Fill Path
-                if let Some(path) = path_builder.finish() {
-                    let mut paint = Paint::default();
-                    paint.set_color(crate::color::convert_color(&proc.current_state.fill_color));
+                let rule = pending_clip_rule.take();
 
+                if let Some(path) = path_builder.finish() {
                     let ctm = &proc.current_state.ctm;
                     let skia_transform =
                         Transform::from_row(ctm.a, ctm.b, ctm.c, ctm.d, ctm.e, ctm.f);
+                    let final_transform = skia_transform.post_concat(base_transform);
 
-                    pixmap.fill_path(
-                        &path,
-                        &paint,
-                        FillRule::Winding,
-                        skia_transform.post_concat(base_transform),
-                        None,
-                    );
+                    if let Some(rule) = rule {
+                        if let Some(transformed_path) = path.clone().transform(final_transform) {
+                            if current_clip.is_none() {
+                                current_clip = tiny_skia::Mask::new(width, height);
+                                if let Some(mask) = current_clip.as_mut() {
+                                    mask.fill_path(
+                                        &transformed_path,
+                                        rule,
+                                        false,
+                                        Transform::identity(),
+                                    );
+                                }
+                            } else if let Some(mask) = current_clip.as_mut() {
+                                mask.intersect_path(
+                                    &transformed_path,
+                                    rule,
+                                    false,
+                                    Transform::identity(),
+                                );
+                            }
+                        }
+                    }
+
+                    let mut paint = Paint::default();
+
+                    if let ColorSpace::LinearGradient {
+                        start,
+                        end,
+                        start_color,
+                        end_color,
+                    } = proc.current_state.fill_color
+                    {
+                        let c1 = Color::from_rgba(
+                            start_color.0,
+                            start_color.1,
+                            start_color.2,
+                            proc.current_state.fill_alpha,
+                        )
+                        .unwrap_or(Color::BLACK);
+                        let c2 = Color::from_rgba(
+                            end_color.0,
+                            end_color.1,
+                            end_color.2,
+                            proc.current_state.fill_alpha,
+                        )
+                        .unwrap_or(Color::BLACK);
+
+                        let gradient = LinearGradient::new(
+                            Point::from_xy(start.0, start.1),
+                            Point::from_xy(end.0, end.1),
+                            vec![GradientStop::new(0.0, c1), GradientStop::new(1.0, c2)],
+                            SpreadMode::Pad,
+                            Transform::identity(),
+                        )
+                        .unwrap_or_else(|| {
+                            // Fallback
+                            LinearGradient::new(
+                                Point::from_xy(0.0, 0.0),
+                                Point::from_xy(1.0, 1.0),
+                                vec![
+                                    GradientStop::new(0.0, Color::BLACK),
+                                    GradientStop::new(1.0, Color::BLACK),
+                                ],
+                                SpreadMode::Pad,
+                                Transform::identity(),
+                            )
+                            .unwrap()
+                        });
+                        paint.shader = gradient;
+                    } else {
+                        paint.set_color(crate::color::convert_color(
+                            &proc.current_state.fill_color,
+                            proc.current_state.fill_alpha,
+                        ));
+                    }
+
+                    if let Some(mask) = current_clip.as_ref() {
+                        let mut temp_pixmap = Pixmap::new(width, height).unwrap();
+                        temp_pixmap.fill_path(&path, &paint, FillRule::Winding, final_transform, None);
+                        temp_pixmap.apply_mask(mask);
+                        pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                    } else {
+                        pixmap.fill_path(&path, &paint, FillRule::Winding, final_transform, None);
+                    }
                 }
                 path_builder = PathBuilder::new();
             }
+            "sh" => {
+                // Shading pattern. It fills the current clipping region.
+                let mut paint = Paint::default();
+
+                if let ColorSpace::LinearGradient {
+                    start,
+                    end,
+                    start_color,
+                    end_color,
+                } = proc.current_state.fill_color
+                {
+                    let c1 = Color::from_rgba(
+                        start_color.0,
+                        start_color.1,
+                        start_color.2,
+                        proc.current_state.fill_alpha,
+                    )
+                    .unwrap_or(Color::BLACK);
+                    let c2 = Color::from_rgba(
+                        end_color.0,
+                        end_color.1,
+                        end_color.2,
+                        proc.current_state.fill_alpha,
+                    )
+                    .unwrap_or(Color::BLACK);
+
+                    if let Some(gradient) = LinearGradient::new(
+                        Point::from_xy(start.0, start.1),
+                        Point::from_xy(end.0, end.1),
+                        vec![GradientStop::new(0.0, c1), GradientStop::new(1.0, c2)],
+                        SpreadMode::Pad,
+                        Transform::identity(),
+                    ) {
+                        paint.shader = gradient;
+                    }
+                } else {
+                    paint.set_color(crate::color::convert_color(
+                        &proc.current_state.fill_color,
+                        proc.current_state.fill_alpha,
+                    ));
+                }
+
+                let bounds_path = PathBuilder::from_rect(
+                    tiny_skia::Rect::from_xywh(0.0, 0.0, width as f32, height as f32).unwrap(),
+                );
+
+                if let Some(mask) = current_clip.as_ref() {
+                    let mut temp_pixmap = Pixmap::new(width, height).unwrap();
+                    temp_pixmap.fill_path(&bounds_path, &paint, FillRule::Winding, Transform::identity(), None);
+                    temp_pixmap.apply_mask(mask);
+                    pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                } else {
+                    pixmap.fill_path(&bounds_path, &paint, FillRule::Winding, Transform::identity(), None);
+                }
+            }
             _ => {
-                // Ignore unknown operators (text, image, etc. handled in later tasks)
+                // gs is parsed here if needed to set proc.current_state.fill_alpha
+                // but we assume ExtGState parsing sets it inside GraphicsStateProcessor
             }
         }
     }
