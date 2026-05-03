@@ -89,11 +89,6 @@ pub extern "system" fn Java_com_pdfsdk_core_PdfDocument_nativeRenderPageToBitmap
         return 0; // false
     }
 
-    // Hybrid Architecture: Use the new alternative `pdf_engine_render_page_hybrid`
-    // which delegates to PDFium backend, if we can extract the path from Java
-    // or pass it explicitly. For now, since the JNI signature does not pass the path,
-    // we use the fallback `pdf_engine_render_page` which relies on tiny-skia.
-    // In the next PR, the Java layer and JNI signatures will be updated.
     let pixel_buffer = pdf_engine_render_page(
         handle as *mut _,
         page_index as usize,

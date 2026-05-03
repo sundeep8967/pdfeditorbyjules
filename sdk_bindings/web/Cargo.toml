@@ -1,0 +1,17 @@
+[package]
+name = "pdf_engine_web"
+version = "0.1.0"
+edition = "2021"
+description = "WASM bindings for the PDF SDK"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+pdf_engine_core = { path = "../../pdf_engine_core" }
+wasm-bindgen = "0.2"
+js-sys = "0.3"
+
+[profile.release]
+opt-level = "s"
+lto = true

@@ -2,16 +2,21 @@ use pdfium_render::prelude::*;
 
 // For a safe FFI boundary, we instantiate PDFium per-request without panicking.
 // In a highly optimized version, the `Pdfium` instance would be stored inside `DocumentHandle`.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn get_pdfium() -> Result<Pdfium, String> {
     let pdfium_bindings = Pdfium::bind_to_system_library()
-            .or_else(|_| Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("./")))
-            .or_else(|_| Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("/usr/lib/")))
-            .or_else(|_| Pdfium::bind_to_library(Pdfium::pdfium_platform_library_name_at_path("/usr/local/lib/")))
+            .or_else(|_| Pdfium::bind_to_library("pdfium"))
             .map_err(|e| format!("Failed to dynamically bind PDFium: {:?}", e))?;
 
     Ok(Pdfium::new(pdfium_bindings))
 }
 
+#[cfg(target_arch = "wasm32")]
+pub fn get_pdfium() -> Result<Pdfium, String> {
+    Err("PDFium is not supported on wasm32 targets".to_string())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn render_page_with_pdfium(path: &str, page_index: usize, width: u32, height: u32) -> Result<Vec<u8>, String> {
     let pdfium = get_pdfium().map_err(|e| format!("PDFium init error: {:?}", e))?;
 
@@ -29,7 +34,7 @@ pub fn render_page_with_pdfium(path: &str, page_index: usize, width: u32, height
         .set_target_height(height as i32)
         .set_clear_color(PdfColor::WHITE);
 
-    let bitmap = page.render_with_config(&render_config).map_err(|e| format!("Render error: {:?}", e))?;
+    let mut bitmap = page.render_with_config(&render_config).map_err(|e| format!("Render error: {:?}", e))?;
 
     // Convert BGRA to RGBA
     let bgra_bytes = bitmap.as_raw_bytes().to_vec();
@@ -42,4 +47,9 @@ pub fn render_page_with_pdfium(path: &str, page_index: usize, width: u32, height
     }
 
     Ok(rgba_bytes)
+}
+
+#[cfg(target_arch = "wasm32")]
+pub fn render_page_with_pdfium(_path: &str, _page_index: usize, _width: u32, _height: u32) -> Result<Vec<u8>, String> {
+    Err("PDFium is not supported on wasm32 targets".to_string())
 }
