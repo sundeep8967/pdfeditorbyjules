@@ -395,3 +395,96 @@ trailer\n<< /Size 3 /Root 1 0 R >>\n";
         assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
     }
 }
+
+// -- Linear Scan Recovery (TASK-024) --
+
+impl<'a> AstParser<'a> {
+    /// Rebuilds the Xref table by linearly scanning the byte array for "obj" markers.
+    /// This provides resilience against broken `startxref` pointers or corrupted tables.
+    pub fn rebuild_xref_from_linear_scan_bytes(data: &'a [u8]) -> Result<XrefTable, PdfError> {
+        let mut table = XrefTable {
+            entries: std::collections::HashMap::new(),
+            trailer_dict: Some(crate::object::PdfDictionary { entries: std::collections::HashMap::new() }),
+        };
+
+        let obj_marker = b" obj";
+        let mut i = 0;
+
+        while i < data.len() {
+            if i + 4 <= data.len() && &data[i..i+4] == obj_marker {
+                let mut backtrack = i;
+                let mut parts = Vec::new();
+
+                while backtrack > 0 && parts.len() < 2 {
+                    backtrack -= 1;
+                    if data[backtrack].is_ascii_whitespace() {
+                        continue;
+                    }
+
+                    let mut token_start = backtrack;
+                    while token_start > 0 && !data[token_start - 1].is_ascii_whitespace() {
+                        token_start -= 1;
+                    }
+
+                    if let Ok(num_str) = std::str::from_utf8(&data[token_start..=backtrack]) {
+                        if let Ok(num) = num_str.parse::<u32>() {
+                            parts.push(num);
+                        } else {
+                            break;
+                        }
+                    }
+                    backtrack = token_start;
+                }
+
+                if parts.len() == 2 {
+                    let obj_id = parts[1];
+                    let gen_id = parts[0] as u16;
+
+                    table.entries.insert(
+                        obj_id,
+                        XrefEntry::InUse {
+                            byte_offset: backtrack as u64,
+                            generation_number: gen_id,
+                        }
+                    );
+                }
+            }
+            i += 1;
+        }
+
+        let trailer_marker = b"trailer";
+        let mut t = data.len();
+        while t >= trailer_marker.len() {
+            t -= 1;
+            if t + trailer_marker.len() <= data.len() && &data[t..t + trailer_marker.len()] == trailer_marker {
+                let temp_lexer = crate::lexer::Lexer::new(&data[t + trailer_marker.len()..]);
+                if let Ok(mut parser) = Self::new(temp_lexer) {
+                    if let Ok(dict) = parser.parse_object() {
+                        if let crate::object::PdfObject::Dictionary(d) = dict {
+                            table.trailer_dict = Some(d);
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(table)
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests_linear {
+    use super::*;
+
+    #[test]
+    fn test_rebuild_xref_from_linear_scan_in_memory() {
+        let data = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n2 0 obj\n<< /Type /Pages >>\nendobj\ntrailer\n<< /Root 1 0 R >>";
+        let table = AstParser::rebuild_xref_from_linear_scan_bytes(data).unwrap();
+
+        assert_eq!(table.entries.len(), 2);
+
+        let root_dict = table.trailer_dict.unwrap();
+        assert!(root_dict.entries.contains_key("Root"));
+    }
+}
