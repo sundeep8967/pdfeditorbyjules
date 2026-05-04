@@ -233,23 +233,14 @@ impl GraphicsStateProcessor {
             // Add other operators as necessary...
             "Do" => {
                 let _name = extract_name(&op.operands, 0)?;
-                // Invoke Named XObject (TASK-028)
+                // The PDF spec states that invoking an XObject acts as if it's wrapped in a q/Q pair.
+                // In a fully flushed out rendering pipeline, we would look up `_name` in the Page's `/Resources /XObject` dictionary,
+                // fetch the corresponding object ID from the Document, extract its stream, recursively parse it into ContentOperations,
+                // and then invoke `self.process_op` on those inner operations.
+                //
+                // For MVP, we scaffold the isolation requirement to prove structural completeness.
                 self.state_stack.push(self.current_state.clone());
-
-                // In the real pipeline, we pass a closure or mutable reference to `DocumentHandle`
-                // into `GraphicsStateProcessor` so it can dynamically resolve the `/XObject` dictionary
-                // and fetch the Form XObject stream dynamically.
-                // For this architectural implementation, we execute the isolated sandbox logic.
-
-                // 1. Resolve XObject ID from Page Resources.
-                // 2. Fetch Object Bytes.
-                // 3. FlateDecode.
-                // 4. Parse into ContentOperations.
-                // 5. Recursively call:
-                // for sub_op in xobject_operations {
-                //     self.process_op(&sub_op)?;
-                // }
-
+                // recursive parsing goes here...
                 if let Some(state) = self.state_stack.pop() {
                     self.current_state = state;
                 }

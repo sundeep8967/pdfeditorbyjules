@@ -54,7 +54,7 @@ When this tracker hits 100%, the Rust SDK will be fully compiled, capable of han
 - [x] **TASK-022:** Full Font Subsystem (Parse embedded TrueType/Type1 binaries, `ToUnicode` CMaps).
 - [x] **TASK-023:** Advanced Image Decoders (`DCTDecode` for JPEG, `JPXDecode` for JPEG2000, `CCITTFaxDecode`).
 - [x] **TASK-024:** Broken XREF Recovery Heuristics (Linear scanning to rebuild corrupted trailer maps).
-- [x] **TASK-025:** Security - [ ] **TASK-025:** Security & Encryption Encryption (AES/RC4 decryption handlers for protected files).
+- [ ] **TASK-025:** Security & Encryption (AES/RC4 decryption handlers for protected files).
 
 ---
 *Progress is updated at the end of every task completion.*
