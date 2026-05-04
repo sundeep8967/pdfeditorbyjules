@@ -34,7 +34,7 @@ pub fn render_page_with_pdfium(path: &str, page_index: usize, width: u32, height
         .set_target_height(height as i32)
         .set_clear_color(PdfColor::WHITE);
 
-    let mut bitmap = page.render_with_config(&render_config).map_err(|e| format!("Render error: {:?}", e))?;
+    let bitmap = page.render_with_config(&render_config).map_err(|e| format!("Render error: {:?}", e))?;
 
     // Convert BGRA to RGBA
     let bgra_bytes = bitmap.as_raw_bytes().to_vec();
