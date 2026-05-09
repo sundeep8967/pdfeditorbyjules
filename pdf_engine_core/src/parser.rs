@@ -15,10 +15,11 @@ pub fn find_startxref(file: &mut File) -> Result<u64, PdfError> {
     }
 
     let chunk_size = std::cmp::min(1024, file_len) as usize;
-    let mut buffer = vec![0u8; chunk_size];
+    let mut buffer = [0u8; 1024];
 
     file.seek(SeekFrom::End(-(chunk_size as i64)))?;
-    file.read_exact(&mut buffer)?;
+    file.read_exact(&mut buffer[..chunk_size])?;
+    let buffer = &buffer[..chunk_size];
 
     let startxref_marker = b"startxref";
     let mut marker_index = None;
