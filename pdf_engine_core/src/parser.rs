@@ -8,6 +8,29 @@ use crate::object::PdfObject;
 use crate::xref::{XrefEntry, XrefTable};
 use std::io::BufRead;
 
+/// Reads a line from `reader` into `buf`, but limits the maximum number of bytes read
+/// to `limit`. If the limit is reached and no newline character is found, an error is returned.
+/// This prevents Denial of Service (DoS) via unbounded allocation.
+fn read_line_limited<R: BufRead>(
+    reader: &mut R,
+    buf: &mut String,
+    limit: u64,
+) -> std::io::Result<usize> {
+    let mut take = reader.take(limit);
+    let bytes_read = take.read_line(buf)?;
+
+    // If we hit the limit but the string doesn't end with a newline,
+    // it means the line is longer than the limit.
+    if bytes_read as u64 == limit && !buf.ends_with('\n') {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::InvalidData,
+            "Line length limit exceeded",
+        ));
+    }
+
+    Ok(bytes_read)
+}
+
 pub fn find_startxref(file: &mut File) -> Result<u64, PdfError> {
     let file_len = file.metadata()?.len();
     if file_len < 16 {
@@ -62,7 +85,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
     let mut reader = std::io::BufReader::new(file);
     let mut line = String::new();
 
-    reader.read_line(&mut line)?;
+    read_line_limited(&mut reader, &mut line, 1024)?;
     if !line.trim().starts_with("xref") {
         return Err(PdfError::InvalidXrefFormat);
     }
@@ -70,7 +93,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
 
     let mut table = XrefTable::new();
 
-    while reader.read_line(&mut line)? > 0 {
+    while read_line_limited(&mut reader, &mut line, 1024)? > 0 {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             line.clear();
@@ -108,7 +131,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
         line.clear();
 
         for i in 0..count {
-            reader.read_line(&mut line)?;
+            read_line_limited(&mut reader, &mut line, 1024)?;
             let entry_parts: Vec<&str> = line.split_whitespace().collect();
             if entry_parts.len() < 3 {
                 return Err(PdfError::InvalidXrefFormat);
@@ -152,6 +175,29 @@ mod tests {
     use super::*;
     use std::io::Write;
     use tempfile::NamedTempFile;
+
+    #[test]
+    fn test_read_line_limited_normal() {
+        let data = b"short line\n";
+        let mut reader = std::io::BufReader::new(&data[..]);
+        let mut line = String::new();
+        let bytes_read = read_line_limited(&mut reader, &mut line, 1024).unwrap();
+        assert_eq!(bytes_read, 11);
+        assert_eq!(line, "short line\n");
+    }
+
+    #[test]
+    fn test_read_line_limited_exceeded() {
+        // 20 bytes long
+        let data = b"this is a long line without a newline";
+        let mut reader = std::io::BufReader::new(&data[..]);
+        let mut line = String::new();
+        // Limit to 10 bytes
+        let result = read_line_limited(&mut reader, &mut line, 10);
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidData);
+    }
 
     #[test]
     fn test_find_startxref_standard() {
@@ -404,14 +450,16 @@ impl<'a> AstParser<'a> {
     pub fn rebuild_xref_from_linear_scan_bytes(data: &'a [u8]) -> Result<XrefTable, PdfError> {
         let mut table = XrefTable {
             entries: std::collections::HashMap::new(),
-            trailer_dict: Some(crate::object::PdfDictionary { entries: std::collections::HashMap::new() }),
+            trailer_dict: Some(crate::object::PdfDictionary {
+                entries: std::collections::HashMap::new(),
+            }),
         };
 
         let obj_marker = b" obj";
         let mut i = 0;
 
         while i < data.len() {
-            if i + 4 <= data.len() && &data[i..i+4] == obj_marker {
+            if i + 4 <= data.len() && &data[i..i + 4] == obj_marker {
                 let mut backtrack = i;
                 let mut parts = Vec::new();
 
@@ -445,7 +493,7 @@ impl<'a> AstParser<'a> {
                         XrefEntry::InUse {
                             byte_offset: backtrack as u64,
                             generation_number: gen_id,
-                        }
+                        },
                     );
                 }
             }
@@ -456,7 +504,9 @@ impl<'a> AstParser<'a> {
         let mut t = data.len();
         while t >= trailer_marker.len() {
             t -= 1;
-            if t + trailer_marker.len() <= data.len() && &data[t..t + trailer_marker.len()] == trailer_marker {
+            if t + trailer_marker.len() <= data.len()
+                && &data[t..t + trailer_marker.len()] == trailer_marker
+            {
                 let temp_lexer = crate::lexer::Lexer::new(&data[t + trailer_marker.len()..]);
                 if let Ok(mut parser) = Self::new(temp_lexer) {
                     if let Ok(dict) = parser.parse_object() {
