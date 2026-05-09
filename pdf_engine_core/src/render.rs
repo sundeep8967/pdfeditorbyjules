@@ -158,7 +158,14 @@ pub fn render_page_to_pixels(
                         let mut temp_pixmap = Pixmap::new(width, height).unwrap();
                         temp_pixmap.stroke_path(&path, &paint, &stroke, final_transform, None);
                         temp_pixmap.apply_mask(mask);
-                        pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                        pixmap.draw_pixmap(
+                            0,
+                            0,
+                            temp_pixmap.as_ref(),
+                            &tiny_skia::PixmapPaint::default(),
+                            Transform::identity(),
+                            None,
+                        );
                     } else {
                         pixmap.stroke_path(&path, &paint, &stroke, final_transform, None);
                     }
@@ -254,9 +261,22 @@ pub fn render_page_to_pixels(
 
                     if let Some(mask) = current_clip.as_ref() {
                         let mut temp_pixmap = Pixmap::new(width, height).unwrap();
-                        temp_pixmap.fill_path(&path, &paint, FillRule::Winding, final_transform, None);
+                        temp_pixmap.fill_path(
+                            &path,
+                            &paint,
+                            FillRule::Winding,
+                            final_transform,
+                            None,
+                        );
                         temp_pixmap.apply_mask(mask);
-                        pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                        pixmap.draw_pixmap(
+                            0,
+                            0,
+                            temp_pixmap.as_ref(),
+                            &tiny_skia::PixmapPaint::default(),
+                            Transform::identity(),
+                            None,
+                        );
                     } else {
                         pixmap.fill_path(&path, &paint, FillRule::Winding, final_transform, None);
                     }
@@ -311,11 +331,30 @@ pub fn render_page_to_pixels(
 
                 if let Some(mask) = current_clip.as_ref() {
                     let mut temp_pixmap = Pixmap::new(width, height).unwrap();
-                    temp_pixmap.fill_path(&bounds_path, &paint, FillRule::Winding, Transform::identity(), None);
+                    temp_pixmap.fill_path(
+                        &bounds_path,
+                        &paint,
+                        FillRule::Winding,
+                        Transform::identity(),
+                        None,
+                    );
                     temp_pixmap.apply_mask(mask);
-                    pixmap.draw_pixmap(0, 0, temp_pixmap.as_ref(), &tiny_skia::PixmapPaint::default(), Transform::identity(), None);
+                    pixmap.draw_pixmap(
+                        0,
+                        0,
+                        temp_pixmap.as_ref(),
+                        &tiny_skia::PixmapPaint::default(),
+                        Transform::identity(),
+                        None,
+                    );
                 } else {
-                    pixmap.fill_path(&bounds_path, &paint, FillRule::Winding, Transform::identity(), None);
+                    pixmap.fill_path(
+                        &bounds_path,
+                        &paint,
+                        FillRule::Winding,
+                        Transform::identity(),
+                        None,
+                    );
                 }
             }
             _ => {
