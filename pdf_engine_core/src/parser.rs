@@ -57,12 +57,39 @@ pub fn find_startxref(file: &mut File) -> Result<u64, PdfError> {
     Ok(offset)
 }
 
+fn read_line_limited<R: BufRead>(reader: &mut R, buf: &mut String, limit: usize) -> std::io::Result<usize> {
+    let mut bytes_read = 0;
+    let mut temp_buf = [0u8; 1];
+    let mut line_bytes = Vec::new();
+
+    while bytes_read < limit {
+        let n = reader.read(&mut temp_buf)?;
+        if n == 0 {
+            break;
+        }
+
+        line_bytes.push(temp_buf[0]);
+        bytes_read += 1;
+
+        if temp_buf[0] == b'\n' {
+            break;
+        }
+    }
+
+    // Lossy conversion is safer in case the XREF table contains invalid UTF-8 bytes
+    // rather than doing blind char casts.
+    buf.push_str(&String::from_utf8_lossy(&line_bytes));
+
+    Ok(bytes_read)
+}
+
 pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfError> {
+    let file_len = file.metadata()?.len();
     file.seek(SeekFrom::Start(offset))?;
     let mut reader = std::io::BufReader::new(file);
     let mut line = String::new();
 
-    reader.read_line(&mut line)?;
+    read_line_limited(&mut reader, &mut line, 1024)?;
     if !line.trim().starts_with("xref") {
         return Err(PdfError::InvalidXrefFormat);
     }
@@ -70,7 +97,7 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
 
     let mut table = XrefTable::new();
 
-    while reader.read_line(&mut line)? > 0 {
+    while read_line_limited(&mut reader, &mut line, 1024)? > 0 {
         let trimmed = line.trim();
         if trimmed.is_empty() {
             line.clear();
@@ -107,8 +134,15 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
         let count: u32 = parts[1].parse().map_err(|_| PdfError::InvalidXrefFormat)?;
         line.clear();
 
+        // A minimal XREF entry is around 6 bytes ("0 0 n\n")
+        // If count implies more entries than bytes in the file, it's invalid.
+        if (count as u64).saturating_mul(6) > file_len {
+            return Err(PdfError::InvalidXrefFormat);
+        }
+
         for i in 0..count {
-            reader.read_line(&mut line)?;
+            line.clear();
+            read_line_limited(&mut reader, &mut line, 1024)?;
             let entry_parts: Vec<&str> = line.split_whitespace().collect();
             if entry_parts.len() < 3 {
                 return Err(PdfError::InvalidXrefFormat);
@@ -214,6 +248,36 @@ mod xref_tests {
                 generation_number: 0
             })
         );
+    }
+
+    #[test]
+    fn test_xref_count_exceeds_file_size() {
+        let mut file = NamedTempFile::new().unwrap();
+        // count = 4294967295 (u32::MAX), this would cause unbounded allocation or stall
+        let xref_data = b"xref\n0 4294967295\n0000000000 65535 f \n";
+        file.write_all(xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        // Should detect it as invalid format due to file length constraint
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
+    }
+
+    #[test]
+    fn test_xref_unbounded_line_length() {
+        let mut file = NamedTempFile::new().unwrap();
+        // A very long line without newline inside the xref table
+        let mut xref_data = b"xref\n0 1\n".to_vec();
+        xref_data.extend(vec![b'a'; 2000]); // Exceeds 1024 limit
+        xref_data.extend(b"\n");
+        file.write_all(&xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        // It will read the first 1024 characters, then process it. It won't find valid entry data and error out safely without memory exhaustion.
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
     }
 }
 
