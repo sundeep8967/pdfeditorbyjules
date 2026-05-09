@@ -134,7 +134,10 @@ pub fn parse_xref_table(file: &mut File, offset: u64) -> Result<XrefTable, PdfEr
                 _ => return Err(PdfError::InvalidXrefFormat),
             };
 
-            table.entries.insert(start_obj + i, entry);
+            let obj_num = start_obj
+                .checked_add(i)
+                .ok_or(PdfError::InvalidXrefFormat)?;
+            table.entries.insert(obj_num, entry);
             line.clear();
         }
     }
@@ -387,6 +390,19 @@ trailer\n<< /Size 3 /Root 1 0 R >>\n";
         let mut file = NamedTempFile::new().unwrap();
         // Missing "xref" keyword, starts directly with subsection header
         let xref_data = b"0 1\n0000000000 65535 f \ntrailer\n";
+        file.write_all(xref_data).unwrap();
+
+        let mut f = file.reopen().unwrap();
+        let result = parse_xref_table(&mut f, 0);
+
+        assert!(matches!(result, Err(PdfError::InvalidXrefFormat)));
+    }
+
+    #[test]
+    fn test_parse_xref_table_integer_overflow() {
+        let mut file = NamedTempFile::new().unwrap();
+        // 4294967295 is u32::MAX. This plus 1 will overflow a u32.
+        let xref_data = b"xref\n4294967295 2\n0000000000 65535 f \n0000000010 00000 n \ntrailer\n<< /Size 2 /Root 1 0 R >>\nstartxref\n100\n%%EOF";
         file.write_all(xref_data).unwrap();
 
         let mut f = file.reopen().unwrap();
